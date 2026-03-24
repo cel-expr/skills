@@ -1,17 +1,3 @@
-// Copyright 2026 Google LLC
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 // Package tools provides the implementation of the cel-skills library.
 package tools
 
@@ -40,9 +26,9 @@ type Config struct {
 }
 
 // ToCELConfig converts a Config to a celenv.Config.
-func (c *Config) ToCELConfig() (*celenv.Config, error) {
+func (c *Config) ToCELConfig() *celenv.Config {
 	if c == nil {
-		return nil, nil
+		return nil
 	}
 	res := celenv.NewConfig(c.Name)
 	res.Description = c.Description
@@ -57,25 +43,13 @@ func (c *Config) ToCELConfig() (*celenv.Config, error) {
 		res.Extensions = append(res.Extensions, ext.ToCELExtension())
 	}
 	if c.ContextVariable != nil {
-		celCtxVar, err := c.ContextVariable.ToCELContextVariable()
-		if err != nil {
-			return nil, err
-		}
-		res.ContextVariable = celCtxVar
+		res.ContextVariable = c.ContextVariable.ToCELContextVariable()
 	}
 	for _, v := range c.Variables {
-		celVar, err := v.ToCELVariable()
-		if err != nil {
-			return nil, err
-		}
-		res.Variables = append(res.Variables, celVar)
+		res.Variables = append(res.Variables, v.ToCELVariable())
 	}
 	for _, f := range c.Functions {
-		celFunc, err := f.ToCELFunction()
-		if err != nil {
-			return nil, err
-		}
-		res.Functions = append(res.Functions, celFunc)
+		res.Functions = append(res.Functions, f.ToCELFunction())
 	}
 	for _, v := range c.Validators {
 		res.Validators = append(res.Validators, v.ToCELValidator())
@@ -83,7 +57,7 @@ func (c *Config) ToCELConfig() (*celenv.Config, error) {
 	for _, f := range c.Features {
 		res.Features = append(res.Features, f.ToCELFeature())
 	}
-	return res, res.Validate()
+	return res
 }
 
 // Import is an import for a cel-go Env.
@@ -101,115 +75,97 @@ func (i *Import) ToCELImport() *celenv.Import {
 
 // Variable is a variable for a cel-go Env.
 type Variable struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	Type        string `json:"type" jsonschema_description:"type name formatted as TypeName or namespace.TypeName with an optional set of type parameters in angle brackets <>"`
+	Name        string      `json:"name"`
+	Description string      `json:"description,omitempty"`
+	TypeName    string      `json:"typeName,omitempty"`
+	Params      []*TypeDesc `json:"params,omitempty"`
 }
 
 // ToCELVariable converts a Variable to a celenv.Variable.
-func (v *Variable) ToCELVariable() (*celenv.Variable, error) {
+func (v *Variable) ToCELVariable() *celenv.Variable {
 	if v == nil {
-		return nil, nil
+		return nil
 	}
-	td, err := parseType(v.Type)
-	if err != nil {
-		return nil, err
+	var params []*celenv.TypeDesc
+	for _, p := range v.Params {
+		params = append(params, p.ToCELTypeDesc())
 	}
 	return &celenv.Variable{
 		Name:        v.Name,
 		Description: v.Description,
-		TypeDesc:    td,
-	}, nil
+		TypeDesc: &celenv.TypeDesc{
+			TypeName: v.TypeName,
+			Params:   params,
+		},
+	}
 }
 
 // ContextVariable is a context variable for a cel-go Env.
 type ContextVariable struct {
-	Type string `json:"type"`
+	TypeName string `json:"typeName"`
 }
 
 // ToCELContextVariable converts a ContextVariable to a celenv.ContextVariable.
-func (c *ContextVariable) ToCELContextVariable() (*celenv.ContextVariable, error) {
+func (c *ContextVariable) ToCELContextVariable() *celenv.ContextVariable {
 	if c == nil {
-		return nil, nil
+		return nil
 	}
-	td, err := parseType(c.Type)
-	if err != nil {
-		return nil, err
-	}
-	if len(td.Params) != 0 {
-		return nil, fmt.Errorf("context variable cannot have type parameters")
-	}
-	return &celenv.ContextVariable{TypeName: td.TypeName}, nil
+	return celenv.NewContextVariable(c.TypeName)
 }
 
 // Function is a function for a cel-go Env.
 type Function struct {
-	Name        string      `json:"name" jsonschema_description:"camelCase function name, either as a standalone functionName or namespace.functionName"`
+	Name        string      `json:"name"`
 	Description string      `json:"description,omitempty"`
 	Overloads   []*Overload `json:"overloads"`
 }
 
 // ToCELFunction converts a Function to a celenv.Function.
-func (f *Function) ToCELFunction() (*celenv.Function, error) {
+func (f *Function) ToCELFunction() *celenv.Function {
 	if f == nil {
-		return nil, nil
+		return nil
 	}
 	var celOverloads []*celenv.Overload
 	for _, o := range f.Overloads {
-		celOverload, err := o.ToCELOverload()
-		if err != nil {
-			return nil, err
-		}
-		celOverloads = append(celOverloads, celOverload)
+		celOverloads = append(celOverloads, o.ToCELOverload())
 	}
 	if f.Description != "" {
-		return celenv.NewFunctionWithDoc(f.Name, f.Description, celOverloads...), nil
+		return celenv.NewFunctionWithDoc(f.Name, f.Description, celOverloads...)
 	}
-	return celenv.NewFunction(f.Name, celOverloads...), nil
+	return celenv.NewFunction(f.Name, celOverloads...)
 }
 
 // Overload is an overload for a cel-go Env.
 type Overload struct {
-	ID       string   `json:"id" jsonschema_description:"overload ID in the format of function_name_type1_..._typeN for global functions and target_type_function_name_type1_..._typeN for member functions"`
-	Examples []string `json:"examples,omitempty"`
-	Target   string   `json:"target,omitempty" jsonschema_description:"receiver type name for member functions"`
-	Args     []string `json:"args,omitempty" jsonschema_description:"argument type names"`
-	Return   string   `json:"return" jsonschema_description:"return type name"`
+	ID       string      `json:"id"`
+	Examples []string    `json:"examples,omitempty"`
+	Target   *TypeDesc   `json:"target,omitempty"`
+	Args     []*TypeDesc `json:"args,omitempty"`
+	Return   *TypeDesc   `json:"return"`
 }
 
 // ToCELOverload converts an Overload to a celenv.Overload.
-func (o *Overload) ToCELOverload() (*celenv.Overload, error) {
+func (o *Overload) ToCELOverload() *celenv.Overload {
 	if o == nil {
-		return nil, nil
+		return nil
 	}
 	var args []*celenv.TypeDesc
 	for _, a := range o.Args {
-		td, err := parseType(a)
-		if err != nil {
-			return nil, err
-		}
-		args = append(args, td)
+		args = append(args, a.ToCELTypeDesc())
 	}
 	var ret *celenv.TypeDesc
-	var err error
-	if o.Return != "" {
-		ret, err = parseType(o.Return)
-		if err != nil {
-			return nil, err
-		}
+	if o.Return != nil {
+		ret = o.Return.ToCELTypeDesc()
 	}
 	var target *celenv.TypeDesc
-	if o.Target != "" {
-		target, err = parseType(o.Target)
-		if err != nil {
-			return nil, err
-		}
+	if o.Target != nil {
+		target = o.Target.ToCELTypeDesc()
 	}
 
 	if target != nil {
-		return celenv.NewMemberOverload(o.ID, target, args, ret, o.Examples...), nil
+		return celenv.NewMemberOverload(o.ID, target, args, ret, o.Examples...)
 	}
-	return celenv.NewOverload(o.ID, args, ret, o.Examples...), nil
+	return celenv.NewOverload(o.ID, args, ret, o.Examples...)
 }
 
 // Extension is an extension for a cel-go Env.
@@ -301,6 +257,47 @@ func (f *Feature) ToCELFeature() *celenv.Feature {
 	return celenv.NewFeature(f.Name, f.Enabled)
 }
 
+// TypeDesc is a type descriptor for a cel-go Env.
+type TypeDesc struct {
+	TypeName    string            `json:"typeName"`
+	Params      []*SimpleTypeDesc `json:"params,omitempty"`
+	IsTypeParam bool              `json:"isTypeParam,omitempty"`
+}
+
+// ToCELTypeDesc converts a TypeDesc to a celenv.TypeDesc.
+func (t *TypeDesc) ToCELTypeDesc() *celenv.TypeDesc {
+	if t == nil {
+		return nil
+	}
+	var params []*celenv.TypeDesc
+	for _, p := range t.Params {
+		params = append(params, p.ToCELTypeDesc())
+	}
+	res := celenv.NewTypeDesc(t.TypeName, params...)
+	if t.IsTypeParam && len(t.Params) == 0 {
+		return celenv.NewTypeParam(t.TypeName)
+	}
+	return res
+}
+
+// SimpleTypeDesc is a simple type descriptor for a cel-go Env.
+type SimpleTypeDesc struct {
+	TypeName    string `json:"typeName"`
+	IsTypeParam bool   `json:"isTypeParam,omitempty"`
+}
+
+// ToCELTypeDesc converts a SimpleTypeDesc to a celenv.TypeDesc.
+func (s *SimpleTypeDesc) ToCELTypeDesc() *celenv.TypeDesc {
+	if s == nil {
+		return nil
+	}
+	res := celenv.NewTypeDesc(s.TypeName)
+	if s.IsTypeParam {
+		return celenv.NewTypeParam(s.TypeName)
+	}
+	return res
+}
+
 // ConfigFromJSON converts a JSON string to a Config.
 func ConfigFromJSON(configJSON string) (*Config, error) {
 	var config Config
@@ -310,15 +307,8 @@ func ConfigFromJSON(configJSON string) (*Config, error) {
 	return &config, nil
 }
 
-// EnvFromConfig takes a Config and converts it to a cel-go Env.
+// EnvFromConfig takes the JSON string and converts it to a cel-go Env.
 func EnvFromConfig(envConfig *Config) (*cel.Env, error) {
-	celConfig, err := envConfig.ToCELConfig()
-	if err != nil {
-		return nil, err
-	}
+	celConfig := envConfig.ToCELConfig()
 	return cel.NewEnv(cel.FromConfig(celConfig, celext.ExtensionOptionFactory))
-}
-
-func parseType(text string) (*celenv.TypeDesc, error) {
-	return celenv.ParseTypeDesc(text)
 }

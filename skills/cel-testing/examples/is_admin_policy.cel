@@ -1,1 +1,0 @@
-'admin' in request.auth.claims.groups

@@ -3,7 +3,15 @@
   "variables": [
     {
       "name": "request.headers",
-      "type": "map<string, string>"
+      "typeName": "map",
+      "params": [
+        {
+          "typeName": "string"
+        },
+        {
+          "typeName": "string"
+        }
+      ]
     }
   ],
   "extensions": [

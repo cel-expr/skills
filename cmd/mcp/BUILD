@@ -2,7 +2,7 @@ load("@rules_go//go:def.bzl", "go_binary")
 load("@rules_go//go:def.bzl", "go_test")
 
 package(
-        default_visibility = ["//visibility:public"],
+            default_visibility = ["//visibility:public"],
 )
 
 go_binary(
@@ -10,16 +10,15 @@ go_binary(
     srcs = ["main.go"],
     deps = [
         "//internal/tools",
+        "//third_party/golang/github_com/google/jsonschema_go/v/v0/jsonschema",
         "@com_github_modelcontextprotocol_go_sdk//mcp",
     ],
 )
 
 go_test(
     name = "mcp_test",
-    srcs = [
-      "main.go", 
-      "main_test.go",
-    ],
+    srcs = ["main_test.go"],
+    library = ":mcp",
     deps = [
         "//internal/tools",
         "@com_github_modelcontextprotocol_go_sdk//mcp",
