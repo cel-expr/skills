@@ -1,17 +1,3 @@
-// Copyright 2026 Google LLC
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package main
 
 import (
@@ -79,7 +65,7 @@ func TestHandleCreateEnvConfig(t *testing.T) {
 	args := CreateEnvConfigArgs{
 		EnvConfig: &tools.Config{
 			Variables: []*tools.Variable{
-				{Name: "foo", Type: "string"},
+				{Name: "foo", TypeName: "string"},
 			},
 		},
 	}
@@ -100,7 +86,7 @@ func TestHandleCompile(t *testing.T) {
 	args := CompileArgs{
 		EnvConfig: &tools.Config{
 			Variables: []*tools.Variable{
-				{Name: "foo", Type: "string"},
+				{Name: "foo", TypeName: "string"},
 			},
 		},
 		Expr: "foo == 'bar'",
@@ -126,7 +112,7 @@ func TestHandleEvaluate(t *testing.T) {
 	args := EvaluateArgs{
 		EnvConfig: &tools.Config{
 			Variables: []*tools.Variable{
-				{Name: "foo", Type: "string"},
+				{Name: "foo", TypeName: "string"},
 			},
 		},
 		Expr: "foo",
@@ -168,7 +154,7 @@ func TestHandleGeneratePrompt(t *testing.T) {
 	args := GeneratePromptArgs{
 		EnvConfig: &tools.Config{
 			Variables: []*tools.Variable{
-				{Name: "foo", Type: "string"},
+				{Name: "foo", TypeName: "string"},
 			},
 		},
 		UserPrompt: "create a rule that checks if foo is 'bar'",
@@ -194,7 +180,7 @@ func TestHandleEvaluateUserAge(t *testing.T) {
 	args := EvaluateArgs{
 		EnvConfig: &tools.Config{
 			Variables: []*tools.Variable{
-				{Name: "user.age", Type: "int"},
+				{Name: "user.age", TypeName: "int"},
 			},
 		},
 		Expr: "// Check if user age is over 18\nuser.age > 18",
