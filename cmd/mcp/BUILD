@@ -24,3 +24,12 @@ go_test(
         "@com_github_modelcontextprotocol_go_sdk//mcp",
     ],
 )
+
+gensignature(
+    name = "mcp_sig",
+    srcs = [":mcp"],
+    tags = [
+        "binfs.reader_acl=not-in-restricted",
+        "binfs=/releases/cel-dev-team/skills/mcp",
+    ],
+)
