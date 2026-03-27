@@ -1,13 +1,8 @@
 ---
 name: cel-authoring
-description: >
+description: >-
   Skill for authoring Google Common Expression Language (CEL) expressions.
   Use to configure and write a new policy or CEL rule.
-argument-hint: "[expression goal]"
-tools:
-  - cel_create_environment
-  - cel_generate_prompt
-  - cel_compile
 ---
 
 # Google Common Expression Language (CEL) Authoring Skill

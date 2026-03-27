@@ -1,13 +1,8 @@
 ---
 name: cel-debugging
-description: >
-  Skill for debugging Google Common Expression Language (CEL)
-  expressions. Use when an expression fails to compile
-or evaluate properly.
-argument-hint: "[failed cel expression]"
-tools:
-  - cel_compile
-  - cel_evaluate
+description: >-
+  Skill for debugging Google Common Expression Language (CEL) expressions.
+  Use when an expression fails to compile or evaluate properly.
 ---
 
 # Google Common Expression Language (CEL) Debugging Skill

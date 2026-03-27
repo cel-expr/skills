@@ -1,12 +1,8 @@
 ---
 name: cel-testing
-description: >
+description: >-
   Skill for testing Google Common Expression Language (CEL) expressions.
   Use to test or validate an existing CEL rule.
-argument-hint: "[cel environment and cel expression]"
-tools:
-  - cel_compile
-  - cel_evaluate
 ---
 
 # Google Common Expression Language (CEL) Testing Skill

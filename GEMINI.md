@@ -17,6 +17,6 @@ The `cel` MCP server provides the following tools:
 
 ## Available Skills
 
-To understand how to best use these tools, please refer to the `cel-authoring`,
-`cel-testing`, and `cel-debugging` skills, which will be automatically available
+To understand how to best use these tools, please refer to the `cel_authoring`,
+`cel_testing`, and `cel_debugging` skills, which will be automatically available
 to the agent when this extension is loaded.
