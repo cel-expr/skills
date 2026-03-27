@@ -1,13 +1,8 @@
 ---
 name: cel-debugging
-description: >
-  Skill for debugging Google Common Expression Language (CEL)
-  expressions. Use when an expression fails to compile
-or evaluate properly.
-argument-hint: "[failed cel expression]"
-tools:
-  - cel_compile
-  - cel_evaluate
+description: >-
+  Skill for debugging Google Common Expression Language (CEL) expressions.
+  Use when an expression fails to compile or evaluate properly.
 ---
 
 # Google Common Expression Language (CEL) Debugging Skill
@@ -23,12 +18,12 @@ CEL processing has two steps:
     correctly typed elements. Use `cel_compile` to validate the expression
     against the `envConfig`. In some cases, the `envConfig` may need to be
     updated to include the required variables, functions, and types. Consult the
-    [cel-authoring](../cel-authoring/SKILL.md) skill for more information.
+    [cel-authoring](../cel_authoring/SKILL.md) skill for more information.
 
 2.  **Evaluation:** Applying actual runtime values (the environment) to the
     compiled expression to produce a result. Use `cel_evaluate` to evaluate the
     expression against the `envConfig` and `testCases`. Consult the
-    [cel-testing](../cel-testing/SKILL.md) skill for more information.
+    [cel-testing](../cel_testing/SKILL.md) skill for more information.
 
 ## Common Compilation Errors
 

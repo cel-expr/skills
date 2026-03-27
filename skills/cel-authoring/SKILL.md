@@ -1,13 +1,8 @@
 ---
 name: cel-authoring
-description: >
+description: >-
   Skill for authoring Google Common Expression Language (CEL) expressions.
   Use to configure and write a new policy or CEL rule.
-argument-hint: "[expression goal]"
-tools:
-  - cel_create_environment
-  - cel_generate_prompt
-  - cel_compile
 ---
 
 # Google Common Expression Language (CEL) Authoring Skill
@@ -70,8 +65,8 @@ Validate the generated expression compiles by calling the `cel_compile` tool,
 providing the generated expression in `{EXPR}.cel` as the `expr` argument and
 the environment definition in `{ENV}.json` as the `envConfig` argument.
 
-On success, proceed to the [cel-testing](../cel-testing/SKILL.md) skill. On
-failure, consult the [cel-debugging](../cel-debugging/SKILL.md) skill.
+On success, proceed to the [cel-testing](../cel_testing/SKILL.md) skill. On
+failure, consult the [cel-debugging](../cel_debugging/SKILL.md) skill.
 
 ---
 
