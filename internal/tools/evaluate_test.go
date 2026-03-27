@@ -16,6 +16,14 @@ func TestEvaluateCEL(t *testing.T) {
 			{Name: "age", TypeName: "int"},
 		},
 	}
+	namespaceEnvJSON := &Config{
+		Name: "namespace",
+		Variables: []*Variable{
+			{Name: "request.name", TypeName: "string"},
+			{Name: "request.path", TypeName: "string"},
+			{Name: "request.method", TypeName: "string"},
+		},
+	}
 
 	tests := []struct {
 		name         string
@@ -82,6 +90,14 @@ func TestEvaluateCEL(t *testing.T) {
 			testCases:    []TestCase{},
 			wantErr:      true,
 			wantCoverage: "Node: 100.00%, Branch: 100.00%",
+		},
+		{
+			name:         "namespace evaluation",
+			expr:         `request.name == "test"`,
+			envConfig:    namespaceEnvJSON,
+			testCases:    []TestCase{{TestCase: "test-namespace", Bindings: map[string]any{"request.name": "test"}, Expected: true}},
+			wantContains: `"status":"pass"`,
+			wantErr:      false,
 		},
 	}
 
