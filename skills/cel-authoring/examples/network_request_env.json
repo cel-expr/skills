@@ -1,0 +1,79 @@
+{
+    "name": "network_request",
+    "extensions": [
+        {
+            "name": "strings",
+            "version": "latest"
+        }
+    ],
+    "variables": [
+        {
+            "name": "origin.ip",
+            "typeName": "string",
+            "documentation": "The IP address of the origin"
+        },
+        {
+            "name": "origin.region_code",
+            "typeName": "string",
+            "documentation": "The two-letter ISO 3166-1 alpha-2 region code of the origin"
+        },
+        {
+            "name": "origin.asn",
+            "typeName": "int",
+            "documentation": "The Autonomous System Number of the origin"
+        },
+        {
+            "name": "request.headers",
+            "typeName": "map",
+            "documentation": "The headers of the request, all header keys are lower-case",
+            "params": [
+                {
+                    "typeName": "string"
+                },
+                {
+                    "typeName": "string"
+                }
+            ]
+        },
+        {
+            "name": "request.method",
+            "typeName": "string",
+            "documentation": "The HTTP method of the request, e.g. GET, POST, PUT, DELETE"
+        },
+        {
+            "name": "request.path",
+            "typeName": "string",
+            "documentation": "The path of the request, e.g. /api/v1/users"
+        },
+        {
+            "name": "request.query",
+            "typeName": "string",
+            "documentation": "The query string of the request, e.g. ?id=123&name=test"
+        }
+    ],
+    "functions": [
+        {
+            "name": "inIpRange",
+            "documentation": "Check if an IP address is in a given IP range",
+            "overloads": [
+                {
+                    "id": "inIpRange_string_string",
+                    "examples": [
+                        "inIpRange('192.168.1.1', '192.168.1.0/24') // true"
+                    ],
+                    "args": [
+                        {
+                            "typeName": "string"
+                        },
+                        {
+                            "typeName": "string"
+                        }
+                    ],
+                    "return": {
+                        "typeName": "bool"
+                    }
+                }
+            ]
+        }
+    ]
+}

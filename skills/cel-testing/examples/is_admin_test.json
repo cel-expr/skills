@@ -1,0 +1,26 @@
+{"testCases":[
+  {
+    "testCase": "is_admin",
+    "bindings": {
+      "request.auth.claims": {
+        "groups": [
+          "admin",
+          "editor"
+        ]
+      }
+    },
+    "expected": true
+  },
+  {
+    "testCase": "is_not_admin",
+    "bindings": {
+      "request.auth.claims": {
+        "groups": [
+          "viewer",
+          "guest"
+        ]
+      }
+    },
+    "expected": false
+  }]
+}

@@ -3,32 +3,19 @@
 Collection of skills and associated MCP server for working with CEL (Common
 Expression Language).
 
-To test your new skills in the Gemini CLI (or any MCP-compatible client), you
-need to register the `cel-mcp` binary as an MCP server.
+1.  Install the extension
 
-0.  Build the CEL MCP server
+To install the stable version of CEL skills run the following command line:
 
-```bash
-g4d -f cel-mcp-cli
-blaze build //third_party/cel/skills/cmd/mcp
+```
+gemini extension link /google/src/files/head/depot/google3/third_party/cel/skills
 ```
 
-1.  Register the MCP Server
+To install the workspace version of CEL skills run this instead:
 
-Add the following configuration to your mcp_config.json (usually located in
-~/.gemini/settings.json):
-
-```json
-{
-  "mcpServers": {
-    "cel-skills": {
-      // Use the absolute path to the binary if not in the same directory
-      "command": "/google/src/cloud/{ldap}/{workspace}/third_party/cel/skills/cmd/mcp/mcp",
-      "args": [],
-      "env": {}
-    }
-  }
-}
+```
+gemini extensions uninstall cel && \
+gemini extensions link "$(blaze info workspace)/third_party/cel/skills"
 ```
 
 2.  Verify Skill Location
