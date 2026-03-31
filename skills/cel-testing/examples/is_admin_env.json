@@ -3,15 +3,7 @@
   "variables": [
     {
       "name": "request.auth.claims",
-      "type_name": "map",
-      "params": [
-        {
-          "type_name": "string"
-        },
-        {
-          "type_name": "dyn"
-        }
-      ]
+      "type": "map<string, dyn>"
     }
   ]
 }

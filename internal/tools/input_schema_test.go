@@ -14,17 +14,17 @@ func TestComputeInputSchema(t *testing.T) {
 	envJSON := &Config{
 		Name: "basic",
 		Variables: []*Variable{
-			{Name: "user", TypeName: "map", Params: []*TypeDesc{{TypeName: "string"}, {TypeName: "dyn"}}},
-			{Name: "age", TypeName: "int"},
-			{Name: "labels", TypeName: "list", Params: []*TypeDesc{{TypeName: "string"}}},
-			{Name: "budget", TypeName: "double"},
-			{Name: "timeout", TypeName: "google.protobuf.Duration"},
-			{Name: "createdAt", TypeName: "google.protobuf.Timestamp"},
-			{Name: "isActive", TypeName: "bool"},
-			{Name: "nothing", TypeName: "null_type"},
-			{Name: "count", TypeName: "uint"},
-			{Name: "optName", TypeName: "optional_type", Params: []*TypeDesc{{TypeName: "string"}}},
-			{Name: "defaultName", TypeName: "type"},
+			{Name: "user", Type: "map<string, dyn>"},
+			{Name: "age", Type: "int"},
+			{Name: "labels", Type: "list<string>"},
+			{Name: "budget", Type: "double"},
+			{Name: "timeout", Type: "google.protobuf.Duration"},
+			{Name: "createdAt", Type: "google.protobuf.Timestamp"},
+			{Name: "isActive", Type: "bool"},
+			{Name: "nothing", Type: "null_type"},
+			{Name: "count", Type: "uint"},
+			{Name: "optName", Type: "optional_type<string>"},
+			{Name: "defaultName", Type: "type"},
 		},
 	}
 

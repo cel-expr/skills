@@ -12,16 +12,16 @@ func TestEvaluateCEL(t *testing.T) {
 	envJSON := &Config{
 		Name: "basic",
 		Variables: []*Variable{
-			{Name: "user", TypeName: "string"},
-			{Name: "age", TypeName: "int"},
+			{Name: "user", Type: "string"},
+			{Name: "age", Type: "int"},
 		},
 	}
 	namespaceEnvJSON := &Config{
 		Name: "namespace",
 		Variables: []*Variable{
-			{Name: "request.name", TypeName: "string"},
-			{Name: "request.path", TypeName: "string"},
-			{Name: "request.method", TypeName: "string"},
+			{Name: "request.name", Type: "string"},
+			{Name: "request.path", Type: "string"},
+			{Name: "request.method", Type: "string"},
 		},
 	}
 
@@ -86,7 +86,7 @@ func TestEvaluateCEL(t *testing.T) {
 		{
 			name:         "failed constructing env",
 			expr:         "true",
-			envConfig:    &Config{Variables: []*Variable{{Name: "a", TypeName: "invalid"}}},
+			envConfig:    &Config{Variables: []*Variable{{Name: "a", Type: "invalid"}}},
 			testCases:    []TestCase{},
 			wantErr:      true,
 			wantCoverage: "Node: 100.00%, Branch: 100.00%",

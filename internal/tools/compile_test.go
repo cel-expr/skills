@@ -8,8 +8,8 @@ func TestCompileCEL(t *testing.T) {
 	envConfig := &Config{
 		Name: "basic",
 		Variables: []*Variable{
-			{Name: "user", TypeName: "string"},
-			{Name: "age", TypeName: "int"},
+			{Name: "user", Type: "string"},
+			{Name: "age", Type: "int"},
 		},
 	}
 
@@ -34,7 +34,7 @@ func TestCompileCEL(t *testing.T) {
 		{
 			name:      "failed constructing env",
 			expr:      `user == "Alice"`,
-			envConfig: &Config{Variables: []*Variable{{Name: "a", TypeName: "invalid"}}}, // invalid type
+			envConfig: &Config{Variables: []*Variable{{Name: "a", Type: "invalid"}}}, // invalid type
 			wantErr:   true,
 		},
 		{
@@ -46,7 +46,7 @@ func TestCompileCEL(t *testing.T) {
 		{
 			name:      "another failed constructing env (duplicate variable)",
 			expr:      `user == "Alice"`,
-			envConfig: &Config{Variables: []*Variable{{Name: "user", TypeName: "string"}, {Name: "user", TypeName: "int"}}}, // duplicate variable
+			envConfig: &Config{Variables: []*Variable{{Name: "user", Type: "string"}, {Name: "user", Type: "int"}}}, // duplicate variable
 			wantErr:   true,
 		},
 	}
