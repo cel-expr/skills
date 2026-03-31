@@ -65,7 +65,7 @@ func TestHandleCreateEnvConfig(t *testing.T) {
 	args := CreateEnvConfigArgs{
 		EnvConfig: &tools.Config{
 			Variables: []*tools.Variable{
-				{Name: "foo", TypeName: "string"},
+				{Name: "foo", Type: "string"},
 			},
 		},
 	}
@@ -86,7 +86,7 @@ func TestHandleCompile(t *testing.T) {
 	args := CompileArgs{
 		EnvConfig: &tools.Config{
 			Variables: []*tools.Variable{
-				{Name: "foo", TypeName: "string"},
+				{Name: "foo", Type: "string"},
 			},
 		},
 		Expr: "foo == 'bar'",
@@ -112,7 +112,7 @@ func TestHandleEvaluate(t *testing.T) {
 	args := EvaluateArgs{
 		EnvConfig: &tools.Config{
 			Variables: []*tools.Variable{
-				{Name: "foo", TypeName: "string"},
+				{Name: "foo", Type: "string"},
 			},
 		},
 		Expr: "foo",
@@ -154,7 +154,7 @@ func TestHandleGeneratePrompt(t *testing.T) {
 	args := GeneratePromptArgs{
 		EnvConfig: &tools.Config{
 			Variables: []*tools.Variable{
-				{Name: "foo", TypeName: "string"},
+				{Name: "foo", Type: "string"},
 			},
 		},
 		UserPrompt: "create a rule that checks if foo is 'bar'",
@@ -180,7 +180,7 @@ func TestHandleEvaluateUserAge(t *testing.T) {
 	args := EvaluateArgs{
 		EnvConfig: &tools.Config{
 			Variables: []*tools.Variable{
-				{Name: "user.age", TypeName: "int"},
+				{Name: "user.age", Type: "int"},
 			},
 		},
 		Expr: "// Check if user age is over 18\nuser.age > 18",

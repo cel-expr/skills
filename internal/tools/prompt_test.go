@@ -11,7 +11,7 @@ import (
 func TestGeneratePrompt(t *testing.T) {
 	envConfig := &Config{
 		Variables: []*Variable{
-			{Name: "foo", TypeName: "string"},
+			{Name: "foo", Type: "string"},
 		},
 	}
 

@@ -3,39 +3,31 @@
   "variables": [
     {
       "name": "origin.ip",
-      "typeName": "string"
+      "type": "string"
     },
     {
       "name": "origin.region_code",
-      "typeName": "string"
+      "type": "string"
     },
     {
       "name": "origin.asn",
-      "typeName": "int"
+      "type": "int"
     },
     {
       "name": "request.headers",
-      "typeName": "map",
-      "params": [
-        {
-          "typeName": "string"
-        },
-        {
-          "typeName": "string"
-        }
-      ]
+      "type": "map<string, string>"
     },
     {
       "name": "request.method",
-      "typeName": "string"
+      "type": "string"
     },
     {
       "name": "request.path",
-      "typeName": "string"
+      "type": "string"
     },
     {
       "name": "request.query",
-      "typeName": "string"
+      "type": "string"
     }
   ],
   "functions": [
@@ -45,16 +37,10 @@
         {
           "id": "inIpRange_string_string",
           "args": [
-            {
-              "typeName": "string"
-            },
-            {
-              "typeName": "string"
-            }
+            "string",
+            "string"
           ],
-          "return": {
-            "typeName": "bool"
-          }
+          "return": "bool"
         }
       ]
     }

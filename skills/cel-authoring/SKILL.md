@@ -14,7 +14,7 @@ functions, types) via JSON configuration, test, and debug.
 
 Follow these steps to author a CEL expression:
 
-### 1. Collect the requirements
+### 1. Collect the Requirements
 
 Ask the user about the kind of expression they want to create to determine the
 variables and functions required to satisfy the request. This will inform how
@@ -30,12 +30,44 @@ functions required:
 -   Otherwise, offer to search Google for relevant concepts using the
     `googleSearch` tool.
 
-### 2. Define the environment
+### 2. Define the Environment
 
 Create a `{ENV}.json` file matching the `cel_create_environment` tool's
 `envConfig` argument schema with the variables, functions, and extensions
 required to satisfy the request. Use the `cel_create_environment` tool to
 validate the environment before continuing to the next step.
+
+Types use the following syntax:
+
+```
+  TypeDesc            = NamespaceIdentifier [ "<" TypeList ">" ] ;
+  NamespaceIdentifier = [ "." ] Identifier { "." Identifier } ;
+  TypeList            = TypeElem { "," TypeElem } ;
+  TypeElem            = TypeDesc | TypeParam
+  TypeParam           = "~" Alpha ;
+  Identifier          = ( Alpha | "_" ) { AlphaNumeric | "_" } ;
+
+  (* Terminals *)
+  Alpha               = "a"..."z" | "A"..."Z" ;
+  Digit               = "0"..."9" ;
+  AlphaNumeric        = Alpha | Digit ;
+```
+
+Examples:
+
+* Simple types: `bool`, `bytes`, `double`, `dyn`, `int`, `null_type`, `string`,
+  `uint`
+* Parameterized types: `list<string>`, `list<~V>`, `map<string, dyn>`,
+  `map<~K,~V>`, `type<list<string>>`, `optional_type<int>`,
+  `map<string, google.rpc.Status>`
+* Namespaced types: `google.protobuf.Duration`, `.google.rpc.Status`
+
+These types may be combined into more complex type descriptions as needed, e.g.
+
+```
+// Optional type containing a map with string keys and protobuf values.
+optional_type<map<string,google.rpc.context.AttributeContext.Resource>>
+```
 
 Reference examples in `examples/` for suggestions on documentation and structure
 of the environment:
@@ -45,12 +77,12 @@ of the environment:
 CEL extension documentation:
 https://github.com/google/cel-go/tree/master/ext/README.md
 
-### 3. Generate an authoring prompt
+### 3. Generate an Authoring Prompt
 
 Generate the authoring prompt by calling the `cel_generate_prompt` tool with the
 `{ENV}.json` content as `envConfig` and the user's requirement as `userPrompt`.
 
-### 4. Generate an expression
+### 4. Generate an Expression
 
 Given the environment, determine if you know enough about the expression the
 user wants to write. If not, ask the user for more information, and provide a
@@ -81,17 +113,21 @@ failure, consult the [cel-debugging](../cel_debugging/SKILL.md) skill.
 3.  **Dot notation:** Use dot notation for accessing fields of messages or maps,
     e.g., `user.name`.
 
-### Standard Types
+### Standard Type Literals
 
--   **Boolean**: `true`, `false`
--   **Integer**: `42`, `-10`
--   **Unsigned Integer**: `42u`
--   **Double**: `3.14`
--   **String**: `"hello"`, `'world'`, `"""multi-line"""`
--   **Bytes**: `b"abc"`, `b"\x41\x42"`
--   **List**: `[1, 2, 3]`
--   **Map**: `{"key": "value"}`
--   **Null**: `null`
+-   **bool**: `true`, `false`
+-   **bytes**: `b"abc"`, `b"\x41\x42"`
+-   **double**: `3.14`
+-   **int**: `42`, `-10`
+-   **uint**: `42u`
+-   **list**: `[1, 2, 3]`
+-   **map**: `{"key": "value"}`
+-   **null_type**: `null`
+-   **string**: `"hello"`, `'world'`,
+```
+    """use for
+       multi-line"""
+```
 
 ### Common Operators
 
