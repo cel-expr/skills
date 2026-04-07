@@ -1,0 +1,10 @@
+{
+  "name": "user_env",
+  "variables": [
+      {
+          "name": "user",
+          "type": "map<string, dyn>",
+          "description": "Valid user attributes include: email, age, roles, and region_code."
+      }
+  ]
+}
