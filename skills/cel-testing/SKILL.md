@@ -7,37 +7,37 @@ description: >-
 
 # Google Common Expression Language (CEL) Testing Skill
 
-Use this skill to test and validate CEL expressions against varied inputs to
+Use this skill to test and validate CEL expressions with a variety of inputs to
 ensure correctness and high coverage.
 
 ## Workflow
 
 Follow these steps to test a CEL expression:
 
-### 1. Identify Expression Dependencies
+* **Compile the Expression** - use `cel_compile` to validate the `{EXPR}.cel`
+  compiles with the `{ENV}.json`.
+* **Generate Tests** - Use the `inputSchema` and `outputSchema` from a
+  successful `cel_compile` to generate test inputs and outputs to a
+  `{SUITE}.json` file.
+* **Evaluate** - Evaluate the test cases with `cel_evaluate`.
+* **Improve Coverage** - Improve coverage until the `cel_evaluate` indicates
+  100% branch and node coverage.
 
-List referenced variables in the compiled expression to identify required
-inputs:
+### 1. Compile the Expression
 
-The result of the compile command is the expression return type, and a JSON
-schema describing the expected input. Use this schema to generate a test input
-value. Determine the test output type from the compiled expression type.
+Provide the `{ENV}.json` and `{EXPR}.cel` to the `cel_compile` tool. If
+successful, the result will contain the `inputSchema` and `outputSchema`
+associated with the expression.
 
-Determine the required inputs by calling the `cel_compile` tool with the
-expression as `expr` and the environment configuration as `envConfig`. The
-result contains the expression return type and a JSON schema describing the
-expected input.
+If the compilation fails, use the [cel-debugging](../cel-debugging/SKILL.md)
+skill to correct the expression.
 
 ### 2. Generate Test Input Fixtures
 
-Create a test suite JSON matching the `cel_evaluate` tool's `testCases` argument
-schema. A test suite is composed of multiple test sections with test cases.
-Group related test cases into sections. One section should be populated with
-inputs which should succeed, one should contain inputs which should fail.
-
-Within a `testCase`, the `bindings` values must match the `inputSchema` from the
-compile command. The `expected` value must match the `outputSchema` from the
-compile command.
+Create a test suite JSON matching the `cel_evaluate` tool. A test suite is
+composed of multiple test cases. Within a `testCase`, the `bindings` values
+must match the `inputSchema` from the compile command. The `expected` value
+must match the `outputSchema` from the compile command.
 
 If the test input schema contains an `additionalProperties` or `items` key be
 sure to generate tests where the objects are populated and empty to validate the
@@ -57,4 +57,4 @@ environment as `envConfig`, and the test suite content as `testCases`.
 ### 4. Evaluate Coverage and Iterate
 
 Review test output for success/failure and total evaluation coverage. Pass
-multiple test sections and test cases in the `testCases` to increase coverage.
+multiple test cases in the `testCases` to increase coverage.

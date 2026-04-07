@@ -13,17 +13,13 @@ Use this skill to diagnose and resolve CEL compilation and evaluation errors.
 
 CEL processing has two steps:
 
-1.  **Compilation (Parsing and Type Checking):** Validating the syntax and
-    ensuring that macros, functions, and field accesses reference known,
-    correctly typed elements. Use `cel_compile` to validate the expression
-    against the `envConfig`. In some cases, the `envConfig` may need to be
-    updated to include the required variables, functions, and types. Consult the
-    [cel-authoring](../cel_authoring/SKILL.md) skill for more information.
+1.  **Compilation** Validating the syntax and type-correctness of an expression
+    using the `cel_compile` tool with an `{ENV}.json` and `{EXPR}.cel`. Consult
+    [cel-authoring](../cel_authoring/SKILL.md) for more information.
 
-2.  **Evaluation:** Applying actual runtime values (the environment) to the
-    compiled expression to produce a result. Use `cel_evaluate` to evaluate the
-    expression against the `envConfig` and `testCases`. Consult the
-    [cel-testing](../cel_testing/SKILL.md) skill for more information.
+2.  **Evaluation:** Use `cel_evaluate` to evaluate an `{EXPR}.cel` against a
+    set of `testCases` stored in a `{SUITE}.json` file. Consult
+    [cel-testing](../cel_testing/SKILL.md) for more information.
 
 ## Common Compilation Errors
 
@@ -74,10 +70,14 @@ Valid compiled expressions failing on runtime data.
 -   **Solution:** Add conditional checks for dynamic denominators.
     -   *Better:* `y != 0 && (x / y > 10)`
 
-### 3. Macro Evaluation Failures (`exists`, `all`, `filter`)
+### 3. "No Such Overload"
 
--   **Cause:** A macro predicate throws an error for an element.
--   **Solution:** Make predicates safe (e.g., use `has()`) before access.
+-  **Cause** A function has been declared in the `{ENV}.json`, but is not
+   implemented in the CEL runtime.
+-  **Solution** Determine if a there is another function which could be used to
+   evaluate the desired functionality. Sometimes using more specific types will
+   reveal a scenario where the type-checker did not identify the missing
+   overload as the inputs to the function were marked as `dyn`.
 
 ## Strategies for Isolating Faults
 

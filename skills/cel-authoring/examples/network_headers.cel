@@ -1,0 +1,4 @@
+// collection filtering macro with strings extension.
+request.headers.exists(h,
+  h.name.lowerAscii() == "authorization" &&
+  h.value.lowerAscii().startsWith("bearer "))

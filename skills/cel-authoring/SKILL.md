@@ -14,46 +14,40 @@ functions, types) via JSON configuration, test, and debug.
 
 Follow these steps to author a CEL expression:
 
-### 1. Collect the Requirements
+* **Collect Requirements** - Determine what the CEL expressions need to
+  accomplish: security, object transformation, filtering / routing?
+* **Determine the Environment** - Identify the variables, functions, and CEL
+  extensions needed to satisfy the requirements, reusing an `{ENV}.json` config
+  or generating a new one with the `cel_create_environment` tool.
+* **Generate an Authoring Prompt** - Generate an authoring prompt specific to
+  the environment using the `cel_generate_prompt` tool.
+* **Generate an Expression** - Use the prompt to generate an expression, and
+  validate it with the `cel_compile` tool.
 
-Ask the user about the kind of expression they want to create to determine the
-variables and functions required to satisfy the request. This will inform how
-the environment and the user's CEL expressions are created.
+### 1. Collect Requirements
 
-Information about the product being used may help inform the variables and
-functions required:
+Determine the use case, requirements, and relevant products.
 
--   For Google Cloud Products, query the Developer Knowledge MCP tool for
-    supported variables and functions.
--   For Kubernetes policies, search kubernetes.io and GitHub for supported
-    variables and functions.
--   Otherwise, offer to search Google for relevant concepts using the
-    `googleSearch` tool.
+If the following products are mentioned, use the following techniques to
+determine variables and functions available:
 
-### 2. Define the Environment
+- **Google Cloud** - Query [Cloud Documentation](https://docs.cloud.google.com/docs)
+- **Kubernetes** - Read [CEL in Kubernetes](https://kubernetes.io/docs/reference/using-api/cel/)
+- Otherwise, use the built-in `googleSearch` tool to learn more.
 
-Create a `{ENV}.json` file matching the `cel_create_environment` tool's
-`envConfig` argument schema with the variables, functions, and extensions
-required to satisfy the request. Use the `cel_create_environment` tool to
-validate the environment before continuing to the next step.
+### 2. Determine the Environment
 
-Types use the following syntax:
+Determine the variables, functions, and
+[extensions](https://github.com/google/cel-go/tree/master/ext/README.md) needed
+to satisfy the requirements. If an existing `{ENV}.json` file exists which
+meets the needs exists, prefer using it. If no such `{ENV}.json` exists,
+generate one and use the `cel_create_environment` tool to validate the config.
 
-```
-  TypeDesc            = NamespaceIdentifier [ "<" TypeList ">" ] ;
-  NamespaceIdentifier = [ "." ] Identifier { "." Identifier } ;
-  TypeList            = TypeElem { "," TypeElem } ;
-  TypeElem            = TypeDesc | TypeParam
-  TypeParam           = "~" Alpha ;
-  Identifier          = ( Alpha | "_" ) { AlphaNumeric | "_" } ;
+See `examples/network_request_env.json` as a reference for how environments are
+configured. Note, type references within the environment followed EBNF grammar
+defined in `references/type_grammar_ebnf.txt`.
 
-  (* Terminals *)
-  Alpha               = "a"..."z" | "A"..."Z" ;
-  Digit               = "0"..."9" ;
-  AlphaNumeric        = Alpha | Digit ;
-```
-
-Examples:
+Example types:
 
 * Simple types: `bool`, `bytes`, `double`, `dyn`, `int`, `null_type`, `string`,
   `uint`
@@ -62,40 +56,26 @@ Examples:
   `map<string, google.rpc.Status>`
 * Namespaced types: `google.protobuf.Duration`, `.google.rpc.Status`
 
-These types may be combined into more complex type descriptions as needed, e.g.
-
-```
-// Optional type containing a map with string keys and protobuf values.
-optional_type<map<string,google.rpc.context.AttributeContext.Resource>>
-```
-
-Reference examples in `examples/` for suggestions on documentation and structure
-of the environment:
-
--   `examples/network_request_env.json`
-
-CEL extension documentation:
-https://github.com/google/cel-go/tree/master/ext/README.md
-
 ### 3. Generate an Authoring Prompt
 
 Generate the authoring prompt by calling the `cel_generate_prompt` tool with the
-`{ENV}.json` content as `envConfig` and the user's requirement as `userPrompt`.
+`{ENV}.json` content as `envConfig` and a summary of the user's requirement as
+`userPrompt`.
 
 ### 4. Generate an Expression
 
-Given the environment, determine if you know enough about the expression the
-user wants to write. If not, ask the user for more information, and provide a
-summarized overview of the expression behavior and its expected output type, if
-one is provided.
+Determine if you know enough to author an expression. If not, ask the user for
+more information to address missing variables, types, functions, or extensions.
+If so, provide a summarized overview of the expression behavior and its expected
+output type.
 
 Generate a prompt using the `cel_generate_prompt` tool and save the result to
 `{ENV}.prompt` for future reference. Use the returned `{ENV}.prompt` to generate
 the expression, `{EXPR}.cel`.
 
-Validate the generated expression compiles by calling the `cel_compile` tool,
-providing the generated expression in `{EXPR}.cel` as the `expr` argument and
-the environment definition in `{ENV}.json` as the `envConfig` argument.
+Validate the expression compiles using `cel_compile` tool, providing the
+`{EXPR}.cel` as the `expr` argument and `{ENV}.json` as the `envConfig`
+argument.
 
 On success, proceed to the [cel-testing](../cel_testing/SKILL.md) skill. On
 failure, consult the [cel-debugging](../cel_debugging/SKILL.md) skill.
@@ -137,14 +117,8 @@ failure, consult the [cel-debugging](../cel_debugging/SKILL.md) skill.
 -   **String and List Concat:** `+`
 -   **Membership:** `in` (e.g., `1 in [1, 2, 3]`)
 
-### Standard Macros and Functions
+### Standard Macros
 
-CEL provides utilities for working with collections and strings:
-
-#### Collections (Lists and Maps)
-
--   **`list.size()`**: Returns the size of the list.
--   **`map.size()`**: Returns the number of entries in the map.
 -   **`has(message.field)`**: Checks if a field is present and has a non-default
     value.
 -   **`exists(e, predicate)`**: Returns true if *at least one* element `e` in
@@ -163,40 +137,9 @@ CEL provides utilities for working with collections and strings:
     elements that satisfy the predicate.
     -   Example: `users.filter(u, u.age >= 18)`
 
-#### Strings
-
--   **`string.size()`**: Returns the number of code points the string.
--   **`string.startsWith(prefix)`**: Checks if the string starts with the
-    prefix.
--   **`string.endsWith(suffix)`**: Checks if the string ends with the suffix.
--   **`string.contains(substring)`**: Checks if the string contains the
-    substring.
--   **`string.matches(regex)`**: Checks if the string matches the RE2 regular
-    expression.
-
 ### Formatting and Escaping
 
 -   Use consistent spacing around operators (e.g., `a == b` not `a==b`).
 -   When writing multi-line strings, use `"""`.
 -   Remember to escape special characters in strings if necessary (e.g., `\n`,
     `\"`, `\\`).
-
-### Example Expressions
-
-**Basic Conditional:**
-
-```cel
-user.age >= 18 && user.country == "US"
-```
-
-**Collection Filtering and Macro:**
-
-```cel
-request.headers.exists(h, h.name == "Authorization" && h.value.startsWith("Bearer "))
-```
-
-**Checking Field Presence:**
-
-```cel
-has(request.payload.id) && request.payload.id != ""
-```
