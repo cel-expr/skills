@@ -43,9 +43,9 @@ to satisfy the requirements. If an existing `{ENV}.json` file exists which
 meets the needs exists, prefer using it. If no such `{ENV}.json` exists,
 generate one and use the `cel_create_environment` tool to validate the config.
 
-See `examples/network_request_env.json` as a reference for how environments are
-configured. Note, type references within the environment followed EBNF grammar
-defined in `references/type_grammar_ebnf.txt`.
+See `examples/network_env.json` and `examples/user_env.json` for environment
+examples. Type references within the environment followed EBNF grammar defined
+in `references/type_grammar_ebnf.txt`.
 
 Example types:
 
