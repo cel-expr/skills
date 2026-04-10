@@ -14,15 +14,15 @@ functions, types) via JSON configuration, test, and debug.
 
 Follow these steps to author a CEL expression:
 
-* **Collect Requirements** - Determine what the CEL expressions need to
-  accomplish: security, object transformation, filtering / routing?
-* **Determine the Environment** - Identify the variables, functions, and CEL
-  extensions needed to satisfy the requirements, reusing an `{ENV}.json` config
-  or generating a new one with the `cel_create_environment` tool.
-* **Generate an Authoring Prompt** - Generate an authoring prompt specific to
-  the environment using the `cel_generate_prompt` tool.
-* **Generate an Expression** - Use the prompt to generate an expression, and
-  validate it with the `cel_compile` tool.
+*   **Collect Requirements** - Determine what the CEL expressions need to
+    accomplish: security, object transformation, filtering / routing?
+*   **Determine the Environment** - Identify the variables, functions, and CEL
+    extensions needed to satisfy the requirements, reusing an `{ENV}.json`
+    config or generating a new one with the `cel_create_environment` tool.
+*   **Generate an Authoring Prompt** - Generate an authoring prompt specific to
+    the environment using the `cel_generate_prompt` tool.
+*   **Generate an Expression** - Use the prompt to generate an expression, and
+    validate it with the `cel_compile` tool.
 
 ### 1. Collect Requirements
 
@@ -31,17 +31,19 @@ Determine the use case, requirements, and relevant products.
 If the following products are mentioned, use the following techniques to
 determine variables and functions available:
 
-- **Google Cloud** - Query [Cloud Documentation](https://docs.cloud.google.com/docs)
-- **Kubernetes** - Read [CEL in Kubernetes](https://kubernetes.io/docs/reference/using-api/cel/)
-- Otherwise, use the built-in `googleSearch` tool to learn more.
+-   **Google Cloud** - Query
+    [Cloud Documentation](https://docs.cloud.google.com/docs)
+-   **Kubernetes** - Read
+    [CEL in Kubernetes](https://kubernetes.io/docs/reference/using-api/cel/)
+-   Otherwise, use the built-in `googleSearch` tool to learn more.
 
 ### 2. Determine the Environment
 
 Determine the variables, functions, and
 [extensions](https://github.com/google/cel-go/tree/master/ext/README.md) needed
-to satisfy the requirements. If an existing `{ENV}.json` file exists which
-meets the needs exists, prefer using it. If no such `{ENV}.json` exists,
-generate one and use the `cel_create_environment` tool to validate the config.
+to satisfy the requirements. If an existing `{ENV}.json` file exists which meets
+the needs exists, prefer using it. If no such `{ENV}.json` exists, generate one
+and use the `cel_create_environment` tool to validate the config.
 
 See `examples/network_env.json` and `examples/user_env.json` for environment
 examples. Type references within the environment followed EBNF grammar defined
@@ -49,12 +51,12 @@ in `references/type_grammar_ebnf.txt`.
 
 Example types:
 
-* Simple types: `bool`, `bytes`, `double`, `dyn`, `int`, `null_type`, `string`,
-  `uint`
-* Parameterized types: `list<string>`, `list<~V>`, `map<string, dyn>`,
-  `map<~K,~V>`, `type<list<string>>`, `optional_type<int>`,
-  `map<string, google.rpc.Status>`
-* Namespaced types: `google.protobuf.Duration`, `.google.rpc.Status`
+*   Simple types: `bool`, `bytes`, `double`, `dyn`, `int`, `null_type`,
+    `string`, `uint`
+*   Parameterized types: `list<string>`, `list<~V>`, `map<string, dyn>`,
+    `map<~K,~V>`, `type<list<string>>`, `optional_type<int>`, `map<string,
+    google.rpc.Status>`
+*   Namespaced types: `google.protobuf.Duration`, `.google.rpc.Status`
 
 ### 3. Generate an Authoring Prompt
 
@@ -80,7 +82,7 @@ argument.
 On success, proceed to the [cel-testing](../cel_testing/SKILL.md) skill. On
 failure, consult the [cel-debugging](../cel_debugging/SKILL.md) skill.
 
----
+--------------------------------------------------------------------------------
 
 ## CEL Syntax & General Principles
 
@@ -104,10 +106,11 @@ failure, consult the [cel-debugging](../cel_debugging/SKILL.md) skill.
 -   **map**: `{"key": "value"}`
 -   **null_type**: `null`
 -   **string**: `"hello"`, `'world'`,
-```
+
+    ```cel
     """use for
        multi-line"""
-```
+    ```
 
 ### Common Operators
 
