@@ -17,8 +17,8 @@ CEL processing has two steps:
     using the `cel_compile` tool with an `{ENV}.json` and `{EXPR}.cel`. Consult
     [cel-authoring](../cel-authoring/SKILL.md) for more information.
 
-2.  **Evaluation:** Use `cel_evaluate` to evaluate an `{EXPR}.cel` against a
-    set of `testCases` stored in a `{SUITE}.json` file. Consult
+2.  **Evaluation:** Use `cel_evaluate` to evaluate an `{EXPR}.cel` against a set
+    of `testCases` stored in a `{SUITE}.json` file. Consult
     [cel-testing](../cel-testing/SKILL.md) for more information.
 
 ## Common Compilation Errors
@@ -72,12 +72,12 @@ Valid compiled expressions failing on runtime data.
 
 ### 3. "No Such Overload"
 
--  **Cause** A function has been declared in the `{ENV}.json`, but is not
-   implemented in the CEL runtime.
--  **Solution** Determine if a there is another function which could be used to
-   evaluate the desired functionality. Sometimes using more specific types will
-   reveal a scenario where the type-checker did not identify the missing
-   overload as the inputs to the function were marked as `dyn`.
+-   **Cause** A function has been declared in the `{ENV}.json`, but is not
+    implemented in the CEL runtime.
+-   **Solution** Determine if a there is another function which could be used to
+    evaluate the desired functionality. Sometimes using more specific types will
+    reveal a scenario where the type-checker did not identify the missing
+    overload as the inputs to the function were marked as `dyn`.
 
 ## Strategies for Isolating Faults
 

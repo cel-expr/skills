@@ -14,14 +14,14 @@ ensure correctness and high coverage.
 
 Follow these steps to test a CEL expression:
 
-* **Compile the Expression** - use `cel_compile` to validate the `{EXPR}.cel`
-  compiles with the `{ENV}.json`.
-* **Generate Tests** - Use the `inputSchema` and `outputSchema` from a
-  successful `cel_compile` to generate test inputs and outputs to a
-  `{SUITE}.json` file.
-* **Evaluate** - Evaluate the test cases with `cel_evaluate`.
-* **Improve Coverage** - Improve coverage until the `cel_evaluate` indicates
-  100% branch and node coverage.
+*   **Compile the Expression** - use `cel_compile` to validate the `{EXPR}.cel`
+    compiles with the `{ENV}.json`.
+*   **Generate Tests** - Use the `inputSchema` and `outputSchema` from a
+    successful `cel_compile` to generate test inputs and outputs to a
+    `{SUITE}.json` file.
+*   **Evaluate** - Evaluate the test cases with `cel_evaluate`.
+*   **Improve Coverage** - Improve coverage until the `cel_evaluate` indicates
+    100% branch and node coverage.
 
 ### 1. Compile the Expression
 
@@ -35,9 +35,9 @@ skill to correct the expression.
 ### 2. Generate Test Input Fixtures
 
 Create a test suite JSON matching the `cel_evaluate` tool. A test suite is
-composed of multiple test cases. Within a `testCase`, the `bindings` values
-must match the `inputSchema` from the compile command. The `expected` value
-must match the `outputSchema` from the compile command.
+composed of multiple test cases. Within a `testCase`, the `bindings` values must
+match the `inputSchema` from the compile command. The `expected` value must
+match the `outputSchema` from the compile command.
 
 If the test input schema contains an `additionalProperties` or `items` key be
 sure to generate tests where the objects are populated and empty to validate the
