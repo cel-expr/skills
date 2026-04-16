@@ -140,9 +140,11 @@ failure, consult the [cel-debugging](../cel_debugging/SKILL.md) skill.
     elements that satisfy the predicate.
     -   Example: `users.filter(u, u.age >= 18)`
 
+<!-- mdformat off (backslashes in codespans are mangled) -->
 ### Formatting and Escaping
 
 -   Use consistent spacing around operators (e.g., `a == b` not `a==b`).
 -   When writing multi-line strings, use `"""`.
 -   Remember to escape special characters in strings if necessary (e.g., `\n`,
     `\"`, `\\`).
+<!-- mdformat on -->
