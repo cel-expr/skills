@@ -42,6 +42,6 @@ go_test(
     deps = [
         "@com_github_google_cel_go//cel",
         "@com_github_google_cel_go//common/env",
-        "//third_party/cel/spec/proto/cel/expr/conformance/proto3:test_all_types_go_proto",
+        "//internal/proto:test_schema_go_proto",
     ],
 )

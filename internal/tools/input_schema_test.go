@@ -21,7 +21,7 @@ import (
 
 	"github.com/google/cel-go/cel"
 
-	proto3pb "google3/third_party/cel/spec/proto/cel/expr/conformance/proto3/test_all_types_go_proto"
+	testpb "github.com/cel-expr/skills/internal/proto"
 )
 
 func TestComputeInputSchema(t *testing.T) {
@@ -47,8 +47,8 @@ func TestComputeInputSchema(t *testing.T) {
 		t.Fatalf("Failed constructing env: %v", err)
 	}
 	env, err = env.Extend(
-		cel.Types(&proto3pb.TestAllTypes{}),
-		cel.Variable("msg", cel.ObjectType("cel.expr.conformance.proto3.TestAllTypes")),
+		cel.Types(&testpb.TestMessage{}),
+		cel.Variable("msg", cel.ObjectType("cel.skills.internal.proto.TestMessage")),
 	)
 	if err != nil {
 		t.Fatalf("Failed extending env: %v", err)
