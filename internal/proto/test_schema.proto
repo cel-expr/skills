@@ -1,0 +1,13 @@
+edition = "2024";
+
+package cel.skills.internal.proto;
+
+option go_package = "google3/third_party/cel/skills/internal/proto;proto";
+
+message TestMessage {
+  message NestedMessage {
+    int64 bb = 1;
+  }
+  NestedMessage single_nested_message = 1;
+  int32 single_int32 = 2;
+}
