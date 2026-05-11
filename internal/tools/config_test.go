@@ -117,12 +117,12 @@ func TestEnvFromConfig(t *testing.T) {
 
 func TestConfigToCEL(t *testing.T) {
 	config := &Config{
-		Name:            "test_config",
-		Description:     "A test config",
-		Container:       "test.v1",
-		Imports:         []*Import{{Name: "test.v1.TestMessage"}},
-		StdLib:          &LibrarySubset{Disabled: false, DisableMacros: true},
-		Extensions:      []*Extension{{Name: "strings", Version: "1"}},
+		Name:        "test_config",
+		Description: "A test config",
+		Container:   "test.v1",
+		Imports:     []*Import{{Name: "test.v1.TestMessage"}},
+		StdLib:      &LibrarySubset{Disabled: false, DisableMacros: true},
+		Extensions:  []*Extension{{Name: "strings", Version: "1"}},
 		Variables: []*Variable{
 			{Name: "user", Description: "user info", Type: "map<string, dyn>"},
 		},
@@ -394,9 +394,9 @@ func TestParseTypeDesc(t *testing.T) {
 			want:  celenv.NewTypeDesc("list", celenv.NewTypeDesc("int")),
 		},
 		{
-			name:    "bare type param",
-			input:   "~T",
-			wantErr: "identifier is expected, but '~' was found",
+			name:  "bare type param",
+			input: "~T",
+			want:  celenv.NewTypeParam("T"),
 		},
 		{
 			name:  "complex nested",
