@@ -20,30 +20,4 @@ go_deps.gazelle_default_attributes(
         "gazelle:proto disable_global",
     ],
 )
-go_deps.module(
-    path = "github.com/google/cel-go",
-    sum = "h1:KjSWstCpz/MN5t4a8gnGJNIYUsJRpdi/r97xWDphIQc=",
-    version = "v0.28.0",
-)
-go_deps.module(
-    path = "github.com/google/jsonschema-go",
-    sum = "h1:/DBOLZTfDow7pe2GmaJNhltueGTtDKICi8V8p+DQPd0=",
-    version = "v0.4.3",
-)
-go_deps.module(
-    path = "github.com/modelcontextprotocol/go-sdk",
-    sum = "h1:PPLS3kn7WtOEnR+Af4X5H96SG0qSab8R/ZQT/HkhPkY=",
-    version = "v1.6.0",
-)
-go_deps.module(
-    path = "google.golang.org/protobuf",
-    sum = "h1:AYd7cD/uASjIL6Q9LiTjz8JLcrh/88q5UObnmY3aOOE=",
-    version = "v1.36.10",
-)
-use_repo(
-    go_deps,
-    "com_github_google_cel_go",
-    "com_github_google_jsonschema_go",
-    "com_github_modelcontextprotocol_go_sdk",
-    "org_golang_google_protobuf",
-)
+go_deps.from_file(go_mod = "//:go.mod")

@@ -10,7 +10,6 @@ go_binary(
     srcs = ["main.go"],
     deps = [
         "//internal/tools",
-        "//third_party/golang/github_com/google/jsonschema_go/v/v0/jsonschema",
         "@com_github_modelcontextprotocol_go_sdk//mcp",
     ],
 )
