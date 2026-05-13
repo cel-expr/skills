@@ -21,7 +21,6 @@ import (
 	"os"
 
 	"github.com/cel-expr/skills/internal/tools"
-	"google3/third_party/golang/github_com/google/jsonschema_go/v/v0/jsonschema/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -60,25 +59,6 @@ func newServer() *mcp.Server {
 	}, handleEvaluate)
 
 	return s
-}
-
-func getSchema[T any]() *jsonschema.Schema {
-	schema, err := jsonschema.For[T](nil)
-	if err != nil {
-		panic(err)
-	}
-	scrubSchema(schema)
-	return schema
-}
-
-func scrubSchema(schema *jsonschema.Schema) {
-	if len(schema.Types) > 1 && schema.Types[0] == "null" {
-		schema.Type = schema.Types[1]
-		schema.Types = nil
-	}
-	for _, p := range schema.Properties {
-		scrubSchema(p)
-	}
 }
 
 // CreateEnvConfigArgs is the arguments for the cel_create_environment tool.

@@ -46,8 +46,8 @@ robustness of the expression to unexpected inputs.
 Reference examples in `examples/` if unsure:
 
 -   `examples/is_admin_policy.cel`
--   `examples/is_admin_env.yaml`
--   `examples/is_admin_test.celtest`
+-   `examples/is_admin_env.json`
+-   `examples/is_admin_test.json`
 
 ### 3. Run the Tests
 

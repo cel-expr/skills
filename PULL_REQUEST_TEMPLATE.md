@@ -23,7 +23,6 @@ please keep lines to 72 characters or less.
 ## Reviews
 
 * Perform a self-review.
-* Make sure the Travis CI build passes.
 * Assign a reviewer once both the above have been completed.
 
 ## Merging

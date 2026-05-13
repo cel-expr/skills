@@ -15,8 +15,6 @@
 package tools
 
 import (
-	"fmt"
-
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
@@ -228,7 +226,6 @@ func (s *SchemaNode) ApplyTypes(env *cel.Env, typeMap map[int64]*types.Type) {
 		p.ApplyTypes(env, typeMap)
 		t := p.FindType(typeMap)
 		if t == nil {
-			fmt.Println("No type found for property", p.ExprRefs)
 			continue
 		}
 		if t.Kind() == types.StructKind && !p.IsLeaf() {
