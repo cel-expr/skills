@@ -1,0 +1,11 @@
+TypeDesc            = NamespaceIdentifier [ "<" TypeList ">" ] ;
+NamespaceIdentifier = [ "." ] Identifier { "." Identifier } ;
+TypeList            = TypeElem { "," TypeElem } ;
+TypeElem            = TypeDesc | TypeParam
+TypeParam           = "~" Alpha ;
+Identifier          = ( Alpha | "_" ) { AlphaNumeric | "_" } ;
+
+(* Terminals *)
+Alpha               = "a"..."z" | "A"..."Z" ;
+Digit               = "0"..."9" ;
+AlphaNumeric        = Alpha | Digit ;

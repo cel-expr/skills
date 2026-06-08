@@ -1,0 +1,29 @@
+[
+  {
+    "testCase": "Mozilla Lowercase Key",
+    "bindings": {
+      "request.headers": {
+        "user-agent": "Mozilla/5.0"
+      }
+    },
+    "expected": true
+  },
+  {
+    "testCase": "Mozilla Titlecase Key",
+    "bindings": {
+      "request.headers": {
+        "User-Agent": "Mozilla/5.0"
+      }
+    },
+    "expected": false
+  },
+  {
+    "testCase": "Non-Mozilla",
+    "bindings": {
+      "request.headers": {
+        "user-agent": "Opera/9.80"
+      }
+    },
+    "expected": false
+  }
+]

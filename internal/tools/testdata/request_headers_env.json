@@ -1,0 +1,14 @@
+{
+  "name": "Request Headers Environment",
+  "variables": [
+    {
+      "name": "request.headers",
+      "type": "map<string, string>"
+    }
+  ],
+  "extensions": [
+    {
+      "name": "strings"
+    }
+  ]
+}

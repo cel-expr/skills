@@ -1,0 +1,3 @@
+// Check if user-agent header is present and its lower-case value contains 'mozilla'
+'user-agent' in request.headers &&
+request.headers['user-agent'].lowerAscii().contains('mozilla')

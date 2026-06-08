@@ -1,0 +1,48 @@
+{
+  "name": "google_cloud_armor",
+  "variables": [
+    {
+      "name": "origin.ip",
+      "type": "string"
+    },
+    {
+      "name": "origin.region_code",
+      "type": "string"
+    },
+    {
+      "name": "origin.asn",
+      "type": "int"
+    },
+    {
+      "name": "request.headers",
+      "type": "map<string, string>"
+    },
+    {
+      "name": "request.method",
+      "type": "string"
+    },
+    {
+      "name": "request.path",
+      "type": "string"
+    },
+    {
+      "name": "request.query",
+      "type": "string"
+    }
+  ],
+  "functions": [
+    {
+      "name": "inIpRange",
+      "overloads": [
+        {
+          "id": "inIpRange_string_string",
+          "args": [
+            "string",
+            "string"
+          ],
+          "return": "bool"
+        }
+      ]
+    }
+  ]
+}

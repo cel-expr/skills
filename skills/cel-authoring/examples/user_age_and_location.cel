@@ -1,0 +1,2 @@
+// basic conditional with strings and integers.
+user.age >= 18 && user.region_code == "US"

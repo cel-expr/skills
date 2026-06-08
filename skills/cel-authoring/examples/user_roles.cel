@@ -1,0 +1,4 @@
+// Check if the user has any roles and that at least one of the roles is
+// "admin". Be sure to type-guard the user.roles field to ensure it's a list
+// before checking for membership because 'user' is typed as map<string, dyn>
+has(user.roles) && type(user.roles) == list && 'admin' in user.roles

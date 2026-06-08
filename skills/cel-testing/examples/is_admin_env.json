@@ -1,0 +1,9 @@
+{
+  "name": "Admin Policy Environment",
+  "variables": [
+    {
+      "name": "request.auth.claims",
+      "type": "map<string, dyn>"
+    }
+  ]
+}
