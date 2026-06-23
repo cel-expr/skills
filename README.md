@@ -32,3 +32,16 @@ over 18."
 
 The agent will then follow the updated workflow in your SKILL.md, calling
 `cel_create_environment`, `cel_generate_prompt`, and `cel_compile` as needed.
+
+## Evaluation
+
+Use go/evalin to evaluate skill activation and behavior. Since CEL uses an MCP
+server make sure to use the `--agent=third_party/cel/skills/config.yaml` agent
+configuration that enables the stdio MCP server before testing the skills.
+
+```sh
+alias evalin='/google/bin/releases/gemini-agents-evalin/evalin.par'
+
+evalin run third_party/cel/skills/skills/cel_debugging/EVAL.txtpb \
+  --agent=third_party/cel/skills/config.yaml
+```
