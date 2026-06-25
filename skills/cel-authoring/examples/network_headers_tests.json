@@ -1,0 +1,75 @@
+[
+  {
+    "testCase": "Authorization Header Matches Bearer Token",
+    "bindings": {
+      "origin.ip": "127.0.0.1",
+      "origin.region_code": "US",
+      "origin.asn": 12345,
+      "request.headers": {
+        "authorization": "Bearer abc123xyz"
+      },
+      "request.method": "GET",
+      "request.path": "/api/v1/users",
+      "request.query": ""
+    },
+    "expected": true
+  },
+  {
+    "testCase": "Authorization Header Capitalized Matches Bearer Token",
+    "bindings": {
+      "origin.ip": "127.0.0.1",
+      "origin.region_code": "US",
+      "origin.asn": 12345,
+      "request.headers": {
+        "Authorization": "bearer abc123xyz"
+      },
+      "request.method": "GET",
+      "request.path": "/api/v1/users",
+      "request.query": ""
+    },
+    "expected": true
+  },
+  {
+    "testCase": "Authorization Header Missing",
+    "bindings": {
+      "origin.ip": "127.0.0.1",
+      "origin.region_code": "US",
+      "origin.asn": 12345,
+      "request.headers": {
+        "content-type": "application/json"
+      },
+      "request.method": "GET",
+      "request.path": "/api/v1/users",
+      "request.query": ""
+    },
+    "expected": false
+  },
+  {
+    "testCase": "Authorization Header Present but Not Bearer",
+    "bindings": {
+      "origin.ip": "127.0.0.1",
+      "origin.region_code": "US",
+      "origin.asn": 12345,
+      "request.headers": {
+        "authorization": "Basic YWxhZGRpbjpvcGVuc2VzYW1l"
+      },
+      "request.method": "GET",
+      "request.path": "/api/v1/users",
+      "request.query": ""
+    },
+    "expected": false
+  },
+  {
+    "testCase": "Empty Headers Map",
+    "bindings": {
+      "origin.ip": "127.0.0.1",
+      "origin.region_code": "US",
+      "origin.asn": 12345,
+      "request.headers": {},
+      "request.method": "GET",
+      "request.path": "/api/v1/users",
+      "request.query": ""
+    },
+    "expected": false
+  }
+]

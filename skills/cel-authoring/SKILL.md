@@ -1,150 +1,90 @@
 ---
 name: cel-authoring
 description: >-
-  Skill for authoring Google Common Expression Language (CEL) expressions.
-  Use to configure and write a new policy or CEL rule.
+  Authoring, configuring, and testing Common Expression Language (CEL)
+  expressions, policies, rules, and environment JSON configurations.
 ---
 
-# Google Common Expression Language (CEL) Authoring Skill
+# Common Expression Language (CEL) Authoring Skill
 
-Use this skill to author CEL expressions, define environments (variables,
-functions, types) via JSON configuration, test, and debug.
+Use this skill to guide authoring, compiling, and testing Common Expression
+Language (CEL) expressions using the CEL MCP tools.
 
 ## Workflow
 
-Follow these steps to author a CEL expression:
+Follow this end-to-end workflow to author CEL expressions:
 
-*   **Collect Requirements** - Determine what the CEL expressions need to
-    accomplish: security, object transformation, filtering / routing?
-*   **Determine the Environment** - Identify the variables, functions, and CEL
-    extensions needed to satisfy the requirements, reusing an `{ENV}.json`
-    config or generating a new one with the `cel_create_environment` tool.
-*   **Generate an Authoring Prompt** - Generate an authoring prompt specific to
-    the environment using the `cel_generate_prompt` tool.
-*   **Generate an Expression** - Use the prompt to generate an expression, and
-    validate it with the `cel_compile` tool.
+1.  **Locate or Create Environment**: Identify/write the CEL environment
+    configuration JSON file (`envConfig`). Call `cel_create_environment` to
+    validate the `envConfig`.
+2.  **Generate Prompt**: Call `cel_generate_prompt` with the user request to
+    create the CEL authoring prompt.
+3.  **Create Expression**: Generate CEL using only the authoring prompt. Call
+    `cel_compile` to validate the expression.
+4.  **Evaluate and Test**: Call `cel_evaluate` to verify behavior and iterate
+    on test coverage until there is >95% node and branch coverage.
 
-### 1. Collect Requirements
+## Locate or Create Environment
 
-Determine the use case, requirements, and relevant products.
+Find the environment definition containing the variables, functions, macros and
+features supported in your CEL expression using `code_search`, `find_by_name`,
+or `grep_search` and the `view_file` tool to read it.
 
-If the following products are mentioned, use the following techniques to
-determine variables and functions available:
+If the environment does not exist, generate an `envConfig` object and call
+`cel_create_environment` to validate it.
 
--   **Google Cloud** - Query
-    [Cloud Documentation](https://docs.cloud.google.com/docs)
--   **Kubernetes** - Read
-    [CEL in Kubernetes](https://kubernetes.io/docs/reference/using-api/cel/)
--   Otherwise, use the built-in `googleSearch` tool to learn more.
+*   Namespaced variables with simple types improve correctness checks.
+*   Use namespacing for related concepts, e.g. `request.path`, `request.time`.
+*   Use protobuf object types for strongly typed structured data.
+*   Only use `map<string, dyn>` the variable is a dynamic structure like JSON
+*   Type names are formatted according to:
+    [type_grammar_ebnf.txt](google3/third_party/cel/skills/skills/cel_authoring/references/type_grammar_ebnf.txt).
 
-### 2. Determine the Environment
+Save the `envConfig` json using `write_to_file` after validation.
 
-Determine the variables, functions, and
-[extensions](https://github.com/google/cel-go/tree/master/ext/README.md) needed
-to satisfy the requirements. If an existing `{ENV}.json` file exists which meets
-the needs exists, prefer using it. If no such `{ENV}.json` exists, generate one
-and use the `cel_create_environment` tool to validate the config.
+## Generate Prompt
 
-See `examples/network_env.json` and `examples/user_env.json` for environment
-examples. Type references within the environment followed EBNF grammar defined
-in `references/type_grammar_ebnf.txt`.
+Provide the JSON environment to `cel_generate_prompt` with the user's original
+request. Exclusively use the output CEL prompt for generating expressions.
 
-Example types:
+## Create Expression
 
-*   Simple types: `bool`, `bytes`, `double`, `dyn`, `int`, `null_type`,
-    `string`, `uint`
-*   Parameterized types: `list<string>`, `list<~V>`, `map<string, dyn>`,
-    `map<~K,~V>`, `type<list<string>>`, `optional_type<int>`, `map<string,
-    google.rpc.Status>`
-*   Namespaced types: `google.protobuf.Duration`, `.google.rpc.Status`
+Use the CEL prompt to create the simplest possible expression which satisfies
+the user's requirements. Call `cel_compile` to validate the CEL. Correct errors
+with the
+[cel-debugging](googl3/third_party/cel/skills/skills/cel_debugging/SKILL.md)
+skill.
 
-### 3. Generate an Authoring Prompt
+## Evaluate and Test
 
-Generate the authoring prompt by calling the `cel_generate_prompt` tool with the
-`{ENV}.json` content as `envConfig` and a summary of the user's requirement as
-`userPrompt`.
+Call `cel_evaluate` with an expression and test cases to validate an expression.
+Test cases must cover edge cases and missing fields to ensure robustness
+and correctness. Prune tests which do not increase coverage.
 
-### 4. Generate an Expression
+Edge cases:
 
-Determine if you know enough to author an expression. If not, ask the user for
-more information to address missing variables, types, functions, or extensions.
-If so, provide a summarized overview of the expression behavior and its expected
-output type.
+* Using a map where a qualified identifier with a simple type would be safer.
+  * Before: `request: map<string, dyn>` and `request.path == 'value'`
+  * After: `request.path: string` and `request.path == 'value'`
+* Unguarded map key or list index accesses:
+  * Before: `m[k]`, After: `k in m && m[k]` or `m[?k].orValue(<default>)`
+  * Before: `l[i]`, After: `l.size() > i && l[i]` or `l[?i].orValue(<default>)`
+Note: the `?` syntax requires enabling `optional` extension in the `envConfig`.
 
-Generate a prompt using the `cel_generate_prompt` tool and save the result to
-`{ENV}.prompt` for future reference. Use the returned `{ENV}.prompt` to generate
-the expression, `{EXPR}.cel`.
+The coverage report for `cel_evaluate` indicates the node and branch coverage
+percentages as a pre-formatted string (e.g., `"Node: %.2f%%, Branch: %.2f%%"`).
+Generate additional test cases until you achieve >95% node and branch coverage.
 
-Validate the expression compiles using `cel_compile` tool, providing the
-`{EXPR}.cel` as the `expr` argument and `{ENV}.json` as the `envConfig`
-argument.
+Report the test results with node and branch coverage percentages.
 
-On success, proceed to the [cel-testing](../cel_testing/SKILL.md) skill. On
-failure, consult the [cel-debugging](../cel_debugging/SKILL.md) skill.
+## Complete Example
 
---------------------------------------------------------------------------------
+The following is a complete example of the artifacts generated from the prompt:
+"Validate the request is authenticated by checking for a bearer token"
 
-## CEL Syntax & General Principles
-
-### General Principles
-
-1.  **Keep it simple:** CEL is deliberately simple. It doesn't support loops,
-    statements, or state modification. Expressions must evaluate to a value.
-2.  **Type safety:** CEL is strongly typed. Ensure your values match the types
-    expected by operators and functions.
-3.  **Dot notation:** Use dot notation for accessing fields of messages or maps,
-    e.g., `user.name`.
-
-### Standard Type Literals
-
--   **bool**: `true`, `false`
--   **bytes**: `b"abc"`, `b"\x41\x42"`
--   **double**: `3.14`
--   **int**: `42`, `-10`
--   **uint**: `42u`
--   **list**: `[1, 2, 3]`
--   **map**: `{"key": "value"}`
--   **null_type**: `null`
--   **string**: `"hello"`, `'world'`,
-
-    ```cel
-    """use for
-       multi-line"""
-    ```
-
-### Common Operators
-
--   **Logical:** `&&`, `||`, `!`
--   **Comparison:** `==`, `!=`, `<`, `<=`, `>`, `>=`
--   **Arithmetic:** `+`, `-`, `*`, `/`, `%`
--   **String and List Concat:** `+`
--   **Membership:** `in` (e.g., `1 in [1, 2, 3]`)
-
-### Standard Macros
-
--   **`has(message.field)`**: Checks if a field is present and has a non-default
-    value.
--   **`exists(e, predicate)`**: Returns true if *at least one* element `e` in
-    the collection satisfies the predicate.
-    -   Example: `users.exists(u, u.age >= 18)`
--   **`all(e, predicate)`**: Returns true if *all* elements `e` in the
-    collection satisfy the predicate.
-    -   Example: `users.all(u, u.isActive)`
--   **`exists_one(e, predicate)`**: Returns true if *exactly one* element `e` in
-    the collection satisfies the predicate.
-    -   Example: `devices.exists_one(d, d.isPrimary == true)`
--   **`map(e, transform)`**: Applies a transformation to each element in a
-    collection, producing a new list.
-    -   Example: `users.map(u, u.name)` (returns a list of names)
--   **`filter(e, predicate)`**: Returns a new collection containing only
-    elements that satisfy the predicate.
-    -   Example: `users.filter(u, u.age >= 18)`
-
-<!-- mdformat off (backslashes in codespans are mangled) -->
-### Formatting and Escaping
-
--   Use consistent spacing around operators (e.g., `a == b` not `a==b`).
--   When writing multi-line strings, use `"""`.
--   Remember to escape special characters in strings if necessary (e.g., `\n`,
-    `\"`, `\\`).
-<!-- mdformat on -->
+*   Environment:
+    [network_env.json](google3/third_party/cel/skills/skills/cel_authoring/examples/network_env.json)
+*   Expression:
+    [network_headers.cel](google3/third_party/cel/skills/skills/cel_authoring/examples/network_headers.cel)
+*   Tests:
+    [network_headers_tests.json](google3/third_party/cel/skills/skills/cel_authoring/examples/network_headers_tests.json)
