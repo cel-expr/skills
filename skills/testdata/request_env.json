@@ -1,0 +1,30 @@
+{
+  "name": "request_env",
+  "variables": [
+    {
+      "name": "request.id",
+      "type": "string",
+      "description": "Unique request tracking ID string"
+    },
+    {
+      "name": "request.path",
+      "type": "string",
+      "description": "HTTP request path string"
+    },
+    {
+      "name": "request.method",
+      "type": "string",
+      "description": "HTTP request method string, e.g. GET, POST, etc."
+    },
+    {
+      "name": "request.headers",
+      "type": "map<string, string>",
+      "description": "HTTP request headers map, all keys are lowercase."
+    },
+    {
+      "name": "request.timestamp",
+      "type": "timestamp",
+      "description": "Request timestamp"
+    }
+  ]
+}

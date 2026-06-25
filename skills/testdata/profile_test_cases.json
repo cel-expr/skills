@@ -1,0 +1,24 @@
+{
+  "testCases": [
+    {
+      "testCase": "profile_present_matching_website",
+      "bindings": {
+        "site": {
+          "profile": {
+            "domain": "google.com",
+            "email": "alice@google.com"
+          }
+        }
+      },
+      "expected": true
+    },
+    {
+      "testCase": "profile_missing",
+      "bindings": {
+        "site": {
+        }
+      },
+      "expected": false
+    }
+  ]
+}

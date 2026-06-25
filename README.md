@@ -18,11 +18,23 @@ gemini extensions uninstall cel && \
 gemini extensions link "$(blaze info workspace)/third_party/cel/skills"
 ```
 
-2.  Verify Skill Location
+2.  Install and Configure Skills
 
-The Gemini CLI looks for skills in the `.agents/skills` (or `_agent/skills`)
-directory relative to your workspace root. The agent will automatically discover
-your skills when you start a session in `third_party/cel/skills`.
+To make these skills automatically discoverable and triggerable in Jetski/Gemini
+Coder across any workspace, inherit the team-level configuration.
+
+Add the following block to your personal configuration file at
+`configs/users/<username>/_agents/skills.json` (create it if it doesn't exist):
+
+```json
+{
+  "inherits": [
+    {
+      "path": "google3/third_party/cel/skills/_agents/skills.json"
+    }
+  ]
+}
+```
 
 3.  Testing the Skill Once configured, you can invoke the skills by their name.
     For example, to test the authoring skill, you can ask the CLI:

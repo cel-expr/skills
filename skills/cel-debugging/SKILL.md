@@ -1,92 +1,101 @@
 ---
 name: cel-debugging
 description: >-
-  Skill for debugging Google Common Expression Language (CEL) expressions.
-  Use when an expression fails to compile or evaluate properly.
+  Diagnosing and resolving Common Expression Language (CEL) compilation and
+  evaluation errors.
 ---
 
-# Google Common Expression Language (CEL) Debugging Skill
+# Common Expression Language (CEL) Debugging Skill
 
-Use this skill to diagnose and resolve CEL compilation and evaluation errors.
+Use this skill to guide diagnosing and resolving correcting issues with CEL
+expressions.
 
-## Understanding the Two Phases
+## Workflow
 
-CEL processing has two steps:
-
-1.  **Compilation** Validating the syntax and type-correctness of an expression
-    using the `cel_compile` tool with an `{ENV}.json` and `{EXPR}.cel`. Consult
-    [cel-authoring](../cel-authoring/SKILL.md) for more information.
-
-2.  **Evaluation:** Use `cel_evaluate` to evaluate an `{EXPR}.cel` against a set
-    of `testCases` stored in a `{SUITE}.json` file. Consult
-    [cel-testing](../cel-testing/SKILL.md) for more information.
+1.  **Identify the Phase**: Determine whether the error is a Compilation
+    error (syntax and types) or an evaluation error.
+2.  **Locate Environment Configuration**: Verify the variables, types, and
+    extensions declared in the environment configuration JSON file
+    (`envConfig`).
+3.  **Apply Fix**: Correct the expression or environment configuration based
+    on the error pattern.
+4.  **Verify**: Re-compile and re-evaluate the expression to ensure issues
+    are resolved.
 
 ## Common Compilation Errors
 
-These occur before execution due to typos, unknown symbols, or invalid types.
+These errors occur before execution due to typos, unknown symbols, or invalid
+type overloading.
 
 ### 1. "Undeclared Reference"
 
--   **Cause:** Using an undefined variable, function, or field.
--   **Example:** `user.admin` when the `User` message only has `id` and `name`.
--   **Solution:** Check schema/prototype. Ensure variables exist in the
-    environment definition.
+Referencing an undefined variable, function, or field:
+- Issue: `user.amin` (typo for `user.admin`, `user.is_admin`)
+- Solution: Declare the variable in the environment configuration
+  (`envConfig`), or correct typos in field/map key names.
 
 ### 2. "Type Mismatch" or "No Matching Overload"
 
--   **Cause:** Calling a function or operator with incorrect types.
--   **Example:** `"123" + 456` (CEL doesn't automatically coerce strings to
-    numbers).
--   **Example:** `string.startsWith(123)` (Expected string parameter).
--   **Solution:** Cast inputs (e.g., `string(456)`) or supply correct types.
-    Verify function signatures.
+Invoking functions or operators with incompatible argument types:
+- Issue: `"123" + 456` or `request.path.startsWith(123)`
+- Solution: Use explicit type conversion functions, e.g., `int("123")` or
+  `string(456)`.
 
 ### 3. "Syntax Error"
 
--   **Cause:** Invalid CEL syntax (e.g., mismatched parentheses).
--   **Example:** `user.age > 18 && (user.country == 'US'`
--   **Solution:** Fix grammar, match parentheses, quote strings.
+Invalid syntax such as unclosed brackets and mismatched parentheses and
+invalid operators:
+- Issue: `user.age > 18 || (user.country == 'US'`
+- Solution: `user.age > 18 || (user.country == 'US')`
+- Issue: `request.time > now & request.path != "secret"`
+- Solution: `request.time > now && request.path != "secret"`
 
-## Common Evaluation Errors
+## Evaluation Errors
 
-Valid compiled expressions failing on runtime data.
+These errors occur at runtime when valid compiled expressions encounter missing
+or unexpected data bindings.
 
 ### 1. "No Such Field"
 
--   **Cause:** Accessing a missing structural field (e.g., map key) at runtime.
--   **Solution:** Use the `has()` macro.
-    -   *Incorrect:* `user.profile.website == "google.com"` (fails if `profile`
-        isn't populated).
-    -   *Correct:* `has(user.profile.website) && user.profile.website ==
-        "google.com"`
--   **Alternative:** Enable the `optional` extension and use the `?` operator.
-    -   *Incorrect:* `user.profile.website == "google.com"` (fails if `profile`
-        isn't populated).
-    -   *Correct:* `user.profile?.website.orValue("") == "google.com"`
+Accessing a missing structural field or map key at runtime when dynamic data is
+omitted:
+- Issue: `user.profile.website == "goog.com"` (fails at runtime if `profile`
+  is missing)
+- Solution A: `has(user.profile.website) && user.profile.website == "goog.com"`
+- Solution B: `user.profile?.website.orValue("") == "goog.com"` (requires
+  `optional` extension in `envConfig`)
 
 ### 2. "Division by Zero"
 
--   **Cause:** Dividing by 0.
--   **Solution:** Add conditional checks for dynamic denominators.
-    -   *Better:* `y != 0 && (x / y > 10)`
+Dividing by a denominator that evaluates to `0` at runtime:
+- Issue: `x / y > 10` (fails at runtime if `y == 0`)
+- Solution: `y != 0 && (x / y > 10)`
 
-### 3. "No Such Overload"
+### 3. "No Such Overload" (Runtime)
 
--   **Cause** A function has been declared in the `{ENV}.json`, but is not
-    implemented in the CEL runtime.
--   **Solution** Determine if a there is another function which could be used to
-    evaluate the desired functionality. Sometimes using more specific types will
-    reveal a scenario where the type-checker did not identify the missing
-    overload as the inputs to the function were marked as `dyn`.
+A function signature is declared in the environment configuration but is not
+registered in the active CEL runtime, or the types at runtime do not agree
+with the types expected by the function signature:
+
+- Issue: `json.data.items.contains('hello')` results in a runtime error of
+  no such overload: contains(list, string)
+- Solution A - type guarding:
+  ```
+  type(json.data.items) == string && json.data.items.contains('hello') ||
+  type(json.data.items) == list && 'hello' in json.data.items
+  ```
+- Solution B - extensions: Ensure required extensions (e.g., `strings`, `lists`)
+  are present in the `extensions` array of the environment configuration.
+- Solution C - narrow types: Replace `dyn` typed variable declarations with
+  narrower types in the `envConfig` if possible.
+  - Before: `json.data.items: dyn`, After: `json.data.items: list<dyn>`
+  - Before: `user: map<string,dyn>`, After: `user.age: int, user.name: string`
 
 ## Strategies for Isolating Faults
 
-To debug complex expressions:
-
-1.  **Break it down:** Split `&&`/`||` expressions into chunks. Evaluate each
-    chunk to isolate the failure.
-2.  **Mock Inputs Minimally:** Test minimal JSON input, adding fields until
-    failure occurs.
-3.  **Verify AST:** Review AST to verify grouping and operator precedence.
-4.  **Use Type Assertions:** Explicitly check dynamic types (e.g., `type(val) ==
-    string`).
+1.  **Expression Decomposition**: Split complex `&&` / `||` compound rules into
+    smaller sub-expressions to test each fragment independently.
+2.  **Minimal Input Mocking**: Start with a minimal JSON binding object in test
+    cases and add fields incrementally to isolate the runtime failure.
+3.  **Dynamic Type Checks**: Use `type(val) == string` or `type(val) == int` to
+    debug unexpected dynamic types at runtime.
