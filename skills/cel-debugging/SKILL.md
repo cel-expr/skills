@@ -55,21 +55,43 @@ invalid operators:
 These errors occur at runtime when valid compiled expressions encounter missing
 or unexpected data bindings.
 
-### 1. "No Such Field"
+### 1. "No Such Field" or "No Such Key"
 
-Accessing a missing structural field or map key at runtime when dynamic data is
-omitted:
-- Issue: `user.profile.website == "goog.com"` (fails at runtime if `profile`
-  is missing)
-- Solution A: `has(user.profile.website) && user.profile.website == "goog.com"`
-- Solution B: `user.profile?.website.orValue("") == "goog.com"` (requires
-  `optional` extension in `envConfig`)
+Accessing an unset Protobuf message field or missing map key at runtime when
+dynamic data is omitted:
+- Issue: `user.profile.website == "goog.com"` (fails if `profile` is unset)
+- Solution A - Proto Presence `has()`: Check field presence via short-circuit:
+  ```
+  has(user.profile) && has(user.profile.website) &&
+  user.profile.website == "goog.com"
+  ```
+- Solution B - Optional Chaining `.?`: Traverse unset fields with `.?` and
+  `.orValue()` (requires `optional` extension in `envConfig`):
+  ```
+  user.?profile.?website.orValue("") == "goog.com"
+  ```
+- Solution C - Dynamic Map Lookup `'in'`: When selecting keys via brackets,
+  guard access using the `in` operator:
+  ```
+  'profile' in user && 'website' in user['profile'] &&
+  user['profile']['website'] == "goog.com"
+  ```
+- Solution D - Optional Chaining Keys `[?]`: When selecting keys via brackets,
+  guard access using the `[?]` operator and `orValue()`:
+  ```
+  user[?'profile'][?'website'].orValue("") == "goog.com"
+  ```
 
 ### 2. "Division by Zero"
 
 Dividing by a denominator that evaluates to `0` at runtime:
 - Issue: `x / y > 10` (fails at runtime if `y == 0`)
 - Solution: `y != 0 && (x / y > 10)`
+
+Alternatively, you may cast numeric types to doubles to avoid division
+by zero errors, though you may end up with an infinite value:
+- Issue: `x / y > 10` (fails at runtime if `y == 0`)
+- Solution: `double(x) / double(y) > 10.0` (possibly infinite if `y == 0.0`)
 
 ### 3. "No Such Overload" (Runtime)
 
