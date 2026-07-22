@@ -19,11 +19,11 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types"
 	protojson "google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
-
-	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/types"
 )
 
 // TestResult is the results of an evaluation.
@@ -46,8 +46,8 @@ type TestCase struct {
 }
 
 // EvaluateCEL evaluates a compiled CEL expression against provided variable bindings.
-func EvaluateCEL(expr string, envConfig *Config, testCases []TestCase) (*EvaluateExprOutput, error) {
-	env, err := EnvFromConfig(envConfig)
+func EvaluateCEL(expr string, envConfig *Config, testCases []TestCase, opts ...cel.EnvOption) (*EvaluateExprOutput, error) {
+	env, err := EnvFromConfig(envConfig, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed constructing env: %w", err)
 	}
@@ -62,9 +62,60 @@ func EvaluateCEL(expr string, envConfig *Config, testCases []TestCase) (*Evaluat
 		return nil, fmt.Errorf("program creation error: %w", err)
 	}
 	coverageTracker := NewCoverageTracker(ast)
+	provider := env.CELTypeProvider()
 	var results []TestResult
 	for _, tc := range testCases {
-		out, details, err := prg.Eval(tc.Bindings)
+		bindings := make(map[string]any, len(tc.Bindings))
+		var bindingErr error
+		for k, v := range tc.Bindings {
+			if _, isProto := v.(proto.Message); !isProto && v != nil {
+				var typeName string
+				if envConfig != nil {
+					for _, varCfg := range envConfig.Variables {
+						if varCfg.Name == k {
+							typeName = varCfg.Type
+							break
+						}
+					}
+				}
+				if typeName != "" {
+					if td, err := parseType(typeName); err == nil && td != nil {
+						typeName = td.TypeName
+					}
+				}
+				if typeName != "" {
+					if _, found := provider.FindStructType(typeName); found {
+						emptyVal := provider.NewValue(typeName, map[string]ref.Val{})
+						if emptyVal != nil && !types.IsError(emptyVal) {
+							if pbMsg, ok := emptyVal.Value().(proto.Message); ok && pbMsg != nil {
+								jsonBytes, err := json.Marshal(v)
+								if err != nil {
+									bindingErr = fmt.Errorf("failed marshaling JSON value for binding %q: %w", k, err)
+									break
+								}
+								msg := pbMsg.ProtoReflect().New().Interface()
+								unopts := protojson.UnmarshalOptions{DiscardUnknown: true}
+								if err := unopts.Unmarshal(jsonBytes, msg); err != nil {
+									bindingErr = fmt.Errorf("failed unmarshaling protobuf input from JSON value for binding %q (type %s): %w", k, typeName, err)
+									break
+								}
+								bindings[k] = msg
+								continue
+							}
+						}
+					}
+				}
+			}
+			bindings[k] = v
+		}
+		if bindingErr != nil {
+			results = append(results, TestResult{
+				TestCase: tc.TestCase,
+				Status:   bindingErr.Error(),
+			})
+			continue
+		}
+		out, details, err := prg.Eval(bindings)
 		status := "undefined"
 		if err != nil {
 			results = append(results, TestResult{
