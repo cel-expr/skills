@@ -16,6 +16,8 @@ package tools
 
 import (
 	"fmt"
+
+	"github.com/google/cel-go/cel"
 )
 
 // CompileExprOutput is the output of a CEL compilation.
@@ -25,8 +27,8 @@ type CompileExprOutput struct {
 }
 
 // CompileCEL compiles a CEL expression against the provided JSON environment schema.
-func CompileCEL(expr string, envConfig *Config) (*CompileExprOutput, error) {
-	env, err := EnvFromConfig(envConfig)
+func CompileCEL(expr string, envConfig *Config, opts ...cel.EnvOption) (*CompileExprOutput, error) {
+	env, err := EnvFromConfig(envConfig, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed constructing env: %w", err)
 	}

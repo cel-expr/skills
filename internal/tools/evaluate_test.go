@@ -20,6 +20,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/google/cel-go/cel"
+	testpb "github.com/cel-expr/skills/internal/proto"
 )
 
 func TestEvaluateCEL(t *testing.T) {
@@ -183,5 +186,42 @@ func TestEvaluateTestData(t *testing.T) {
 	// Verify count
 	if len(got.TestResults) != 3 {
 		t.Errorf("expected 3 evaluation results, got %d", len(got.TestResults))
+	}
+}
+
+func TestEvaluateCEL_WithProtobufInputs(t *testing.T) {
+	envConfig := &Config{
+		Name: "pb_test",
+		Variables: []*Variable{
+			{Name: "msg", Type: "cel.skills.internal.proto.TestMessage"},
+		},
+	}
+	expr := `msg.single_int32 == 42 && msg.single_nested_message.bb == 100`
+
+	testCases := []TestCase{
+		{
+			TestCase: "pb-case-pass",
+			Bindings: map[string]any{
+				"msg": map[string]any{
+					"singleInt32": 42,
+					"singleNestedMessage": map[string]any{
+						"bb": 100,
+					},
+				},
+			},
+			Expected: true,
+		},
+	}
+
+	got, err := EvaluateCEL(expr, envConfig, testCases, cel.Types(&testpb.TestMessage{}))
+	if err != nil {
+		t.Fatalf("EvaluateCEL() error = %v", err)
+	}
+
+	if len(got.TestResults) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(got.TestResults))
+	}
+	if got.TestResults[0].Status != "pass" {
+		t.Errorf("expected pass, got %s", got.TestResults[0].Status)
 	}
 }

@@ -21,11 +21,11 @@ import (
 )
 
 // GeneratePrompt generates an LLM authoring prompt explaining the exact variables and functions available.
-func GeneratePrompt(envConfig *Config, userPrompt string) (string, error) {
+func GeneratePrompt(envConfig *Config, userPrompt string, opts ...cel.EnvOption) (string, error) {
 	if envConfig == nil {
 		return "", fmt.Errorf("envConfig cannot be nil")
 	}
-	env, err := EnvFromConfig(envConfig)
+	env, err := EnvFromConfig(envConfig, opts...)
 	if err != nil {
 		return "", fmt.Errorf("EnvFromConfig(envConfig) failed: %v", err)
 	}
