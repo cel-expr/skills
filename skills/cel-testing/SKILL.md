@@ -29,7 +29,7 @@ Provide the `{ENV}.json` and `{EXPR}.cel` to the `cel_compile` tool. If
 successful, the result will contain the `inputSchema` and `outputSchema`
 associated with the expression.
 
-If the compilation fails, use the [cel-debugging](../cel_debugging/SKILL.md)
+If the compilation fails, use the [cel-debugging](../cel-debugging/SKILL.md)
 skill to correct the expression.
 
 ### 2. Generate Test Input Fixtures
