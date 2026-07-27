@@ -38,7 +38,7 @@ If the environment does not exist, generate an `envConfig` object and call
 *   Use protobuf object types for strongly typed structured data.
 *   Only use `map<string, dyn>` the variable is a dynamic structure like JSON
 *   Type names are formatted according to:
-    [type_grammar_ebnf.txt](google3/third_party/cel/skills/skills/cel-authoring/references/type_grammar_ebnf.txt).
+    [type_grammar_ebnf.txt](skills/cel-authoring/references/type_grammar_ebnf.txt).
 
 Save the `envConfig` json using `write_to_file` after validation.
 
@@ -52,7 +52,7 @@ request. Exclusively use the output CEL prompt for generating expressions.
 Use the CEL prompt to create the simplest possible expression which satisfies
 the user's requirements. Call `cel_compile` to validate the CEL. Correct errors
 with the
-[cel-debugging](googl3/third_party/cel/skills/skills/cel-debugging/SKILL.md)
+[cel-debugging](skills/cel-debugging/SKILL.md)
 skill.
 
 ## Evaluate and Test
@@ -83,8 +83,8 @@ The following is a complete example of the artifacts generated from the prompt:
 "Validate the request is authenticated by checking for a bearer token"
 
 *   Environment:
-    [network_env.json](google3/third_party/cel/skills/skills/cel-authoring/examples/network_env.json)
+    [network_env.json](skills/cel-authoring/examples/network_env.json)
 *   Expression:
-    [network_headers.cel](google3/third_party/cel/skills/skills/cel-authoring/examples/network_headers.cel)
+    [network_headers.cel](skills/cel-authoring/examples/network_headers.cel)
 *   Tests:
-    [network_headers_tests.json](google3/third_party/cel/skills/skills/cel-authoring/examples/network_headers_tests.json)
+    [network_headers_tests.json](skills/cel-authoring/examples/network_headers_tests.json)
