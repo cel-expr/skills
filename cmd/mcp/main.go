@@ -22,7 +22,7 @@ import (
 	"os"
 	"strings"
 
-	descpb "google3/net/proto2/proto/descriptor_go_proto"
+	descpb "google.golang.org/protobuf/types/descriptorpb"
 	"github.com/google/cel-go/cel"
 	"google.golang.org/protobuf/proto"
 

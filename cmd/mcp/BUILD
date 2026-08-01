@@ -9,7 +9,7 @@ go_binary(
     name = "cel-expr-mcp",
     srcs = ["main.go"],
     deps = [
-        "//net/proto2/proto:descriptor_go_proto",
+        "@org_golang_google_protobuf//types/descriptorpb",
         "@com_github_google_cel_go//cel",
         "//internal/tools",
         "@com_github_modelcontextprotocol_go_sdk//mcp",
@@ -22,7 +22,7 @@ go_test(
     srcs = ["main_test.go"],
     library = ":cel-expr-mcp",
     deps = [
-        "//net/proto2/proto:descriptor_go_proto",
+        "@org_golang_google_protobuf//types/descriptorpb",
         "//internal/proto:test_schema_go_proto",
         "//internal/tools",
         "@com_github_modelcontextprotocol_go_sdk//mcp",

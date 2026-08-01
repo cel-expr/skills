@@ -20,12 +20,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	descpb "google3/net/proto2/proto/descriptor_go_proto"
+	descpb "google.golang.org/protobuf/types/descriptorpb"
 	testpb "github.com/cel-expr/skills/internal/proto"
 	"github.com/cel-expr/skills/internal/tools"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/protobuf/proto"
-	"google3/third_party/golang/protobuf/v2/reflect/protodesc/protodesc"
+	"google.golang.org/protobuf/reflect/protodesc"
 )
 
 func TestListTools(t *testing.T) {
