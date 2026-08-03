@@ -16,7 +16,7 @@ edition = "2024";
 
 package cel.skills.internal.proto;
 
-option go_package = "github.com/cel-expr/skills/internal/proto;testpb"
+option go_package = "github.com/cel-expr/skills/internal/proto;testpb";
 
 message TestMessage {
   message NestedMessage {

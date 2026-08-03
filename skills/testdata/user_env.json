@@ -1,0 +1,25 @@
+{
+  "name": "user_env",
+  "variables": [
+    {
+      "name": "user.id",
+      "type": "int",
+      "description": "Unique identifier for the user"
+    },
+    {
+      "name": "user.age",
+      "type": "int",
+      "description": "Full name of the user"
+    },
+    {
+      "name": "user.name",
+      "type": "string",
+      "description": "Full name of the user"
+    },
+    {
+      "name": "user.is_active",
+      "type": "bool",
+      "description": "Whether the user account is active"
+    }
+  ]
+}

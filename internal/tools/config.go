@@ -311,12 +311,14 @@ func ConfigFromJSON(configJSON string) (*Config, error) {
 }
 
 // EnvFromConfig takes a Config and converts it to a cel-go Env.
-func EnvFromConfig(envConfig *Config) (*cel.Env, error) {
+func EnvFromConfig(envConfig *Config, opts ...cel.EnvOption) (*cel.Env, error) {
 	celConfig, err := envConfig.ToCELConfig()
 	if err != nil {
 		return nil, err
 	}
-	return cel.NewEnv(cel.FromConfig(celConfig, celext.ExtensionOptionFactory))
+	envOpts := append([]cel.EnvOption{}, opts...)
+	envOpts = append(envOpts, cel.FromConfig(celConfig, celext.ExtensionOptionFactory))
+	return cel.NewEnv(envOpts...)
 }
 
 func parseType(text string) (*celenv.TypeDesc, error) {

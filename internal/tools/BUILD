@@ -7,6 +7,7 @@ package(
 
 go_library(
     name = "tools",
+    importpath = "github.com/cel-expr/skills/internal/tools",
     srcs = [
         "compile.go",
         "config.go",
@@ -15,7 +16,6 @@ go_library(
         "input_schema.go",
         "prompt.go",
     ],
-    importpath = "github.com/cel-expr/skills/internal/tools",
     deps = [
         "@com_github_google_cel_go//cel",
         "@com_github_google_cel_go//common/ast",
@@ -42,6 +42,6 @@ go_test(
     deps = [
         "@com_github_google_cel_go//cel",
         "@com_github_google_cel_go//common/env",
-        "//internal/proto",
+        "//internal/proto:test_schema_go_proto",
     ],
 )

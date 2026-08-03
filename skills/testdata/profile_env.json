@@ -1,0 +1,16 @@
+{
+  "name": "profile_env",
+  "extensions": [
+    {
+      "name": "strings",
+      "version": "latest"
+    }
+  ],
+  "variables": [
+    {
+      "name": "site",
+      "type": "map<string, dyn>",
+      "description": "Website profile data"
+    }
+  ]
+}

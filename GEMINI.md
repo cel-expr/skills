@@ -7,7 +7,7 @@ and debug CEL expressions.
 
 The `cel` MCP server provides the following tools:
 
-- `cel_create_environment`: Defines the variables, functions, types for an
+- `cel_create_environment`: Defines the the variables, functions, types for an
    expression.
 - `cel_generate_prompt`: Generates an authoring prompt for an expression based
    on the configuration and requirement.
@@ -17,5 +17,6 @@ The `cel` MCP server provides the following tools:
 
 ## Available Skills
 
-To understand how to best use these tools, please refer to the `cel-authoring`,
-`cel-testing`, and `cel-debugging` skills.
+To understand how to best use these tools, please refer to the `cel_authoring`
+and `cel_debugging` skills, which will be automatically available to the agent
+when this extension is loaded.
