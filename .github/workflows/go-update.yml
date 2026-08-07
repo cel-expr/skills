@@ -52,5 +52,5 @@ jobs:
             git commit -m "chore(go): regenerate test_schema.pb.go and tidy go.mod/go.sum"
             git push
           else
-            echo "All generated files are up to date."
+            echo "Generated files are up to date!"
           fi
