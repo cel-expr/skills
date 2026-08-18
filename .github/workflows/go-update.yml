@@ -1,0 +1,56 @@
+name: CEL Skills Go Update & Test
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+      - copybara-sync
+  push:
+    branches:
+      - main
+
+jobs:
+  go-update-and-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout PR Branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+
+      - name: Set up Go
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        with:
+          go-version: '1.25.0'
+
+      - name: Install Protoc & protoc-gen-go
+        run: |
+          sudo apt-get update && sudo apt-get install -y protobuf-compiler
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+
+      - name: Regenerate Protobuf Go Code
+        run: |
+          protoc --go_out=. --go_opt=paths=source_relative internal/proto/test_schema.proto
+
+      - name: Run go mod tidy
+        run: go mod tidy
+
+      - name: Run go test
+        run: go test ./...
+
+      - name: Commit updated files if changed
+        run: |
+          if ! git diff --quiet go.mod go.sum internal/proto/test_schema.pb.go; then
+            git config user.name "copybara-service[bot]"
+            git config user.email "copybara-service[bot]@users.noreply.github.com"
+            git add go.mod go.sum internal/proto/test_schema.pb.go
+            git commit -m "chore(go): regenerate test_schema.pb.go and tidy go.mod/go.sum"
+            git push
+          else
+            echo "Generated files are up to date!"
+          fi

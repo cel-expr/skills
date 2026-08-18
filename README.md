@@ -33,4 +33,3 @@ over 18."
 
 The agent will then follow the updated workflow in your SKILL.md, calling
 `cel_create_environment`, `cel_generate_prompt`, and `cel_compile` as needed.
-

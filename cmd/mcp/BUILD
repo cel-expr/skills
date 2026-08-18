@@ -2,7 +2,7 @@ load("@rules_go//go:def.bzl", "go_binary")
 load("@rules_go//go:def.bzl", "go_test")
 
 package(
-        default_visibility = ["//visibility:public"],
+            default_visibility = ["//visibility:public"],
 )
 
 go_binary(
