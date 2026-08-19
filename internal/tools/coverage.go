@@ -15,10 +15,10 @@
 package tools
 
 import (
-	"github.com/google/cel-go/cel"
-	celast "github.com/google/cel-go/common/ast"
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types"
+	"cel.dev/cel-go/cel"
+	celast "cel.dev/cel-go/common/ast"
+	"cel.dev/cel-go/common/types"
+	"cel.dev/cel-go/common/types/ref"
 )
 
 // NewCoverageTracker creates a new CoverageTracker.

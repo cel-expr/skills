@@ -17,7 +17,7 @@ package tools
 import (
 	"fmt"
 
-	"github.com/google/cel-go/cel"
+	"cel.dev/cel-go/cel"
 )
 
 // GeneratePrompt generates an LLM authoring prompt explaining the exact variables and functions available.

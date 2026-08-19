@@ -22,9 +22,10 @@ import (
 	"os"
 	"strings"
 
-	descpb "google.golang.org/protobuf/types/descriptorpb"
-	"github.com/google/cel-go/cel"
+	"cel.dev/cel-go/cel"
+
 	"google.golang.org/protobuf/proto"
+	descpb "google.golang.org/protobuf/types/descriptorpb"
 
 	"github.com/cel-expr/skills/internal/tools"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
