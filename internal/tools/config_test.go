@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	celenv "github.com/google/cel-go/common/env"
+	celenv "cel.dev/cel-go/common/env"
 )
 
 func TestConfigFromJSON(t *testing.T) {

@@ -19,9 +19,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/google/cel-go/cel"
-	celenv "github.com/google/cel-go/common/env"
-	celext "github.com/google/cel-go/ext"
+	"cel.dev/cel-go/cel"
+	celenv "cel.dev/cel-go/common/env"
+	celext "cel.dev/cel-go/ext"
 )
 
 // Config is a configuration for a cel-go Env.
