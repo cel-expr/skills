@@ -58,3 +58,11 @@ To understand how to best use these tools, refer to the skills in `skills/`:
     generating expressions, and compiling.
 -   `cel-debugging`: Diagnostic steps for troubleshooting syntax, type, and
     evaluation errors.
+
+## Release & Supply Chain Security
+
+Releases are built for multiple platforms with Sigstore Cosign signing and SLSA Level 3 provenance:
+
+-   Release Workflow: `.github/workflows/release.yml`
+-   Signing: Keyless Cosign signatures (bundle, certificate, and signature) generated via GitHub OIDC token
+-   Provenance: Generated via `slsa-framework/slsa-github-generator` (generic generator)
