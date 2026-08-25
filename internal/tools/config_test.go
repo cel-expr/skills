@@ -255,6 +255,13 @@ func TestToCELConfigErrors(t *testing.T) {
 			},
 			wantErr: "unexpected end of input",
 		},
+		{
+			name: "validation error empty import name",
+			config: &Config{
+				Imports: []*Import{{Name: ""}},
+			},
+			wantErr: "invalid import",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

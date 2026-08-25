@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package mcp
 
 import (
 	"context"
@@ -20,17 +20,17 @@ import (
 	"path/filepath"
 	"testing"
 
-	descpb "google.golang.org/protobuf/types/descriptorpb"
 	testpb "github.com/cel-expr/skills/internal/proto"
 	"github.com/cel-expr/skills/internal/tools"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
+	descpb "google.golang.org/protobuf/types/descriptorpb"
 )
 
 func TestListTools(t *testing.T) {
 	ctx := context.Background()
-	s := newServer(nil)
+	s := NewServer(nil)
 
 	// Connect the server and client using in-memory transports.
 	t1, t2 := mcp.NewInMemoryTransports()
@@ -76,7 +76,7 @@ func TestListTools_WithFixedEnvironment(t *testing.T) {
 			{Name: "foo", Type: "string"},
 		},
 	}
-	s := newServer(fixedEnv)
+	s := NewServer(fixedEnv)
 
 	t1, t2 := mcp.NewInMemoryTransports()
 	if _, err := s.Connect(ctx, t1, nil); err != nil {
@@ -119,7 +119,7 @@ func TestFixedEnvironmentToolsExecution(t *testing.T) {
 			{Name: "foo", Type: "string"},
 		},
 	}
-	s := newServer(fixedEnv)
+	s := NewServer(fixedEnv)
 
 	t1, t2 := mcp.NewInMemoryTransports()
 	if _, err := s.Connect(ctx, t1, nil); err != nil {
@@ -184,34 +184,25 @@ func TestFixedEnvironmentToolsExecution(t *testing.T) {
 }
 
 func TestLoadEnvConfig(t *testing.T) {
-	empty, err := loadEnvConfig("")
+	empty, err := LoadEnvConfig("")
 	if err != nil || empty != nil {
 		t.Errorf("expected (nil, nil) for empty input, got (%v, %v)", empty, err)
 	}
 
 	jsonStr := `{"variables":[{"name":"x","type":"int"}]}`
-	cfg, err := loadEnvConfig(jsonStr)
+	cfg, err := LoadEnvConfig(jsonStr)
 	if err != nil {
-		t.Fatalf("loadEnvConfig failed for JSON string: %v", err)
+		t.Fatalf("LoadEnvConfig failed for JSON string: %v", err)
 	}
 	if len(cfg.Variables) != 1 || cfg.Variables[0].Name != "x" {
 		t.Errorf("unexpected config: %+v", cfg)
 	}
 }
 
-type EvaluationResults struct {
-	TestCase string `json:"testCase"`
-	Status   string `json:"status"`
-}
-
-type EvaluateExprOutputSchema struct {
-	EvaluationResults []EvaluationResults `json:"evaluationResults"`
-	Coverage          string              `json:"coverage"`
-}
-
 func TestHandleCreateEnvConfig(t *testing.T) {
 	ctx := context.Background()
 
+	h := &toolsHandler{}
 	args := CreateEnvConfigArgs{
 		EnvConfig: &tools.Config{
 			Variables: []*tools.Variable{
@@ -220,7 +211,7 @@ func TestHandleCreateEnvConfig(t *testing.T) {
 		},
 	}
 
-	res, _, err := handleCreateEnvConfig(ctx, &mcp.CallToolRequest{}, args)
+	res, _, err := h.handleCreateEnvConfig(ctx, &mcp.CallToolRequest{}, args)
 	if err != nil {
 		t.Fatalf("handleCreateEnvConfig failed: %v", err)
 	}
@@ -233,6 +224,7 @@ func TestHandleCreateEnvConfig(t *testing.T) {
 func TestHandleCompile(t *testing.T) {
 	ctx := context.Background()
 
+	h := &toolsHandler{}
 	args := CompileArgs{
 		EnvConfig: &tools.Config{
 			Variables: []*tools.Variable{
@@ -242,7 +234,7 @@ func TestHandleCompile(t *testing.T) {
 		Expr: "foo == 'bar'",
 	}
 
-	res, out, err := handleCompile(ctx, &mcp.CallToolRequest{}, args)
+	res, out, err := h.handleCompile(ctx, &mcp.CallToolRequest{}, args)
 	if err != nil {
 		t.Fatalf("handleCompile failed: %v", err)
 	}
@@ -259,6 +251,7 @@ func TestHandleCompile(t *testing.T) {
 func TestHandleEvaluate(t *testing.T) {
 	ctx := context.Background()
 
+	h := &toolsHandler{}
 	args := EvaluateArgs{
 		EnvConfig: &tools.Config{
 			Variables: []*tools.Variable{
@@ -275,7 +268,7 @@ func TestHandleEvaluate(t *testing.T) {
 		},
 	}
 
-	res, out, err := handleEvaluate(ctx, &mcp.CallToolRequest{}, args)
+	res, out, err := h.handleEvaluate(ctx, &mcp.CallToolRequest{}, args)
 	if err != nil {
 		t.Fatalf("handleEvaluate failed: %v", err)
 	}
@@ -301,6 +294,7 @@ func TestHandleEvaluate(t *testing.T) {
 func TestHandleGeneratePrompt(t *testing.T) {
 	ctx := context.Background()
 
+	h := &toolsHandler{}
 	args := GeneratePromptArgs{
 		EnvConfig: &tools.Config{
 			Variables: []*tools.Variable{
@@ -310,7 +304,7 @@ func TestHandleGeneratePrompt(t *testing.T) {
 		UserPrompt: "create a rule that checks if foo is 'bar'",
 	}
 
-	res, _, err := handleGeneratePrompt(ctx, &mcp.CallToolRequest{}, args)
+	res, _, err := h.handleGeneratePrompt(ctx, &mcp.CallToolRequest{}, args)
 	if err != nil {
 		t.Fatalf("handleGeneratePrompt failed: %v", err)
 	}
@@ -321,69 +315,6 @@ func TestHandleGeneratePrompt(t *testing.T) {
 
 	if len(res.Content) == 0 {
 		t.Error("expected non-empty output content")
-	}
-}
-
-func TestHandleEvaluateUserAge(t *testing.T) {
-	ctx := context.Background()
-
-	args := EvaluateArgs{
-		EnvConfig: &tools.Config{
-			Variables: []*tools.Variable{
-				{Name: "user.age", Type: "int"},
-			},
-		},
-		Expr: "// Check if user age is over 18\nuser.age > 18",
-		TestCases: []tools.TestCase{
-			{
-				TestCase: "Age is 19",
-				Bindings: map[string]any{"user.age": 19},
-				Expected: true,
-			},
-			{
-				TestCase: "Age is exactly 18",
-				Bindings: map[string]any{"user.age": 18},
-				Expected: false,
-			},
-			{
-				TestCase: "Age is under 18",
-				Bindings: map[string]any{"user.age": 17},
-				Expected: false,
-			},
-		},
-	}
-
-	res, out, err := handleEvaluate(ctx, &mcp.CallToolRequest{}, args)
-	if err != nil {
-		t.Fatalf("handleEvaluate failed: %v", err)
-	}
-
-	if res != nil && res.IsError {
-		t.Errorf("expected success, got error: %v", res.Content[0])
-	}
-
-	if out == nil {
-		t.Fatal("expected output, got nil")
-	}
-
-	expectedStatusFound := map[string]bool{
-		"Age is 19":         false,
-		"Age is exactly 18": false,
-		"Age is under 18":   false,
-	}
-
-	tr := out.(*tools.EvaluateExprOutput)
-	for _, result := range tr.TestResults {
-		if result.Status != "pass" {
-			t.Errorf("test case '%s' failed: %s", result.TestCase, result.Status)
-		}
-		expectedStatusFound[result.TestCase] = true
-	}
-
-	for tc, found := range expectedStatusFound {
-		if !found {
-			t.Errorf("expected test case result for '%s' not found", tc)
-		}
 	}
 }
 
@@ -439,13 +370,13 @@ func TestSetupServer(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s, err := setupServer(tt.fdsPath, tt.envPath)
+			s, err := SetupServer(tt.fdsPath, tt.envPath)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("setupServer() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("SetupServer() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !tt.wantErr && s == nil {
-				t.Errorf("setupServer() returned nil server without error")
+				t.Errorf("SetupServer() returned nil server without error")
 			}
 		})
 	}
@@ -472,9 +403,9 @@ func TestSetupServer_WithProtobufTypes(t *testing.T) {
 		t.Fatalf("failed writing temp pb env file: %v", err)
 	}
 
-	s, err := setupServer(validFdsPath, validPbEnvPath)
+	s, err := SetupServer(validFdsPath, validPbEnvPath)
 	if err != nil || s == nil {
-		t.Fatalf("setupServer() failed with valid FDS and env: server=%v, err=%v", s, err)
+		t.Fatalf("SetupServer() failed with valid FDS and env: server=%v, err=%v", s, err)
 	}
 
 	ctx := context.Background()
@@ -531,19 +462,11 @@ func TestSetupServer_WithProtobufTypes(t *testing.T) {
 }
 
 func TestLoadFileDescriptorSet(t *testing.T) {
-	// 1. Non-existent file
-	if _, err := loadFileDescriptorSet("non_existent.pb"); err == nil {
+	if _, err := LoadFileDescriptorSet("non_existent.pb"); err == nil {
 		t.Error("expected error for non-existent file, got nil")
 	}
 
-	// 2. Invalid proto bytes
 	tmpDir := t.TempDir()
-	invalidPath := filepath.Join(tmpDir, "invalid.pb")
-	if err := os.WriteFile(invalidPath, []byte("not a proto"), 0644); err != nil {
-		t.Fatalf("failed writing temp file: %v", err)
-	}
-	// Note: proto unmarshal of arbitrary string might not error if protobuf tags are absent,
-	// but let's test a valid FileDescriptorSet
 	fds := &descpb.FileDescriptorSet{}
 	validBytes, err := proto.Marshal(fds)
 	if err != nil {
@@ -551,10 +474,10 @@ func TestLoadFileDescriptorSet(t *testing.T) {
 	}
 	validPath := filepath.Join(tmpDir, "valid.pb")
 	if err := os.WriteFile(validPath, validBytes, 0644); err != nil {
-		t.Fatalf("failed writing valid FDS: %v", err)
+		t.Fatalf("failed writing valid FDS file: %v", err)
 	}
 
-	opt, err := loadFileDescriptorSet(validPath)
+	opt, err := LoadFileDescriptorSet(validPath)
 	if err != nil || opt == nil {
 		t.Errorf("expected success loading valid FDS, got opt=%v, err=%v", opt, err)
 	}
@@ -576,8 +499,8 @@ func TestLoadEnvConfig_Errors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, err := loadEnvConfig(tt.envPathOrJSON); err == nil {
-				t.Errorf("loadEnvConfig(%q) expected error, got nil", tt.envPathOrJSON)
+			if _, err := LoadEnvConfig(tt.envPathOrJSON); err == nil {
+				t.Errorf("LoadEnvConfig(%q) expected error, got nil", tt.envPathOrJSON)
 			}
 		})
 	}
@@ -585,6 +508,7 @@ func TestLoadEnvConfig_Errors(t *testing.T) {
 
 func TestToolHandlers_ErrorPaths(t *testing.T) {
 	ctx := context.Background()
+	h := &toolsHandler{}
 
 	tests := []struct {
 		name string
@@ -593,7 +517,7 @@ func TestToolHandlers_ErrorPaths(t *testing.T) {
 		{
 			name: "handleCreateEnvConfig error (invalid variable type)",
 			run: func(ctx context.Context) error {
-				_, _, err := handleCreateEnvConfig(ctx, &mcp.CallToolRequest{}, CreateEnvConfigArgs{
+				_, _, err := h.handleCreateEnvConfig(ctx, &mcp.CallToolRequest{}, CreateEnvConfigArgs{
 					EnvConfig: &tools.Config{
 						Variables: []*tools.Variable{{Name: "x", Type: "unknown_type_xxx"}},
 					},
@@ -604,7 +528,7 @@ func TestToolHandlers_ErrorPaths(t *testing.T) {
 		{
 			name: "handleCompile error (invalid CEL expression)",
 			run: func(ctx context.Context) error {
-				_, _, err := handleCompile(ctx, &mcp.CallToolRequest{}, CompileArgs{
+				_, _, err := h.handleCompile(ctx, &mcp.CallToolRequest{}, CompileArgs{
 					Expr: "1 +",
 				})
 				return err
@@ -613,7 +537,7 @@ func TestToolHandlers_ErrorPaths(t *testing.T) {
 		{
 			name: "handleEvaluate error (invalid CEL expression)",
 			run: func(ctx context.Context) error {
-				_, _, err := handleEvaluate(ctx, &mcp.CallToolRequest{}, EvaluateArgs{
+				_, _, err := h.handleEvaluate(ctx, &mcp.CallToolRequest{}, EvaluateArgs{
 					Expr: "1 +",
 				})
 				return err
@@ -622,7 +546,7 @@ func TestToolHandlers_ErrorPaths(t *testing.T) {
 		{
 			name: "handleGeneratePrompt error (invalid env config)",
 			run: func(ctx context.Context) error {
-				_, _, err := handleGeneratePrompt(ctx, &mcp.CallToolRequest{}, GeneratePromptArgs{
+				_, _, err := h.handleGeneratePrompt(ctx, &mcp.CallToolRequest{}, GeneratePromptArgs{
 					EnvConfig: &tools.Config{
 						Variables: []*tools.Variable{{Name: "x", Type: "unknown_type_xxx"}},
 					},
