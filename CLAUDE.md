@@ -5,10 +5,12 @@ Expression Language (CEL) expressions.
 
 ## Project Structure & Architecture
 
--   `cmd/mcp`: Entry point for the Model Context Protocol (MCP) server
+-   `cmd/cel-expr`: Unified CLI and MCP server entry point (`cel-expr`).
+-   `cmd/mcp`: Standalone entry point for the Model Context Protocol (MCP) server
     (`cel-expr-mcp`).
+-   `internal/mcp`: MCP server implementation, transport setup, and tool dispatch.
 -   `internal/tools`: Internal implementation for environment loading,
-    compilation, evaluation, and prompt generation.
+    compilation, evaluation, coverage, and prompt generation.
 -   `skills/`: Agent skills directory containing guidelines and workflows:
     -   `cel-authoring`: Authoring, configuring, and testing expressions and
         JSON environment definitions.
@@ -19,8 +21,10 @@ Expression Language (CEL) expressions.
 
 ### Go CLI
 
+-   **Build unified CLI**: `go build ./cmd/cel-expr`
 -   **Build MCP server**: `go build ./cmd/mcp`
 -   **Run tests**: `go test ./...`
+-   **Run unified CLI**: `go run ./cmd/cel-expr <compile|eval|env|prompt|mcp>`
 -   **Run MCP server**: `go run ./cmd/mcp`
 
 ### Bazel
