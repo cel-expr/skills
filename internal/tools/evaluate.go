@@ -84,6 +84,18 @@ func EvaluateCEL(expr string, envConfig *Config, testCases []TestCase, opts ...c
 					}
 				}
 				if typeName != "" {
+					switch typeName {
+					case "int":
+						if f, ok := v.(float64); ok {
+							bindings[k] = int64(f)
+							continue
+						}
+					case "uint":
+						if f, ok := v.(float64); ok {
+							bindings[k] = uint64(f)
+							continue
+						}
+					}
 					if _, found := provider.FindStructType(typeName); found {
 						emptyVal := provider.NewValue(typeName, map[string]ref.Val{})
 						if emptyVal != nil && !types.IsError(emptyVal) {

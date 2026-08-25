@@ -29,6 +29,12 @@ func TestGeneratePrompt(t *testing.T) {
 		},
 	}
 
+	invalidEnvConfig := &Config{
+		Variables: []*Variable{
+			{Name: "foo", Type: "unknown_type_xxx"},
+		},
+	}
+
 	tests := []struct {
 		name       string
 		envConfig  *Config
@@ -46,6 +52,13 @@ func TestGeneratePrompt(t *testing.T) {
 		{
 			name:       "nil env config",
 			envConfig:  nil,
+			userPrompt: "check if foo is bar",
+			wantInRes:  nil,
+			wantErr:    true,
+		},
+		{
+			name:       "invalid env config",
+			envConfig:  invalidEnvConfig,
 			userPrompt: "check if foo is bar",
 			wantInRes:  nil,
 			wantErr:    true,
@@ -88,7 +101,7 @@ func TestGeneratePromptTestData(t *testing.T) {
 	}
 
 	if !strings.Contains(got, "Allow traffic from 10.0.0.0/8") {
-		t.Errorf("GeneratePrompt() prompot missing %q", got)
+		t.Errorf("GeneratePrompt() prompt missing %q", got)
 	}
 	if !strings.Contains(got, "origin.ip") {
 		t.Errorf("GeneratePrompt() attribute missing %q", got)

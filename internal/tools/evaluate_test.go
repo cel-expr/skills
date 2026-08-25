@@ -31,6 +31,7 @@ func TestEvaluateCEL(t *testing.T) {
 		Variables: []*Variable{
 			{Name: "user", Type: "string"},
 			{Name: "age", Type: "int"},
+			{Name: "count", Type: "uint"},
 		},
 	}
 	namespaceEnvJSON := &Config{
@@ -55,10 +56,18 @@ func TestEvaluateCEL(t *testing.T) {
 			name:         "successful evaluation",
 			expr:         `user == "Alice" && age > 18`,
 			envConfig:    envJSON,
-			testCases:    []TestCase{{TestCase: "test-1", Bindings: map[string]any{"user": "Alice", "age": 20}, Expected: true}},
+			testCases:    []TestCase{{TestCase: "test-1", Bindings: map[string]any{"user": "Alice", "age": 20.0}, Expected: true}},
 			wantContains: `"testCase":"test-1","status":"pass"`,
 			wantErr:      false,
 			wantCoverage: "Node: 100.00%, Branch: 50.00%",
+		},
+		{
+			name:         "uint variable evaluation",
+			expr:         `count > 5u`,
+			envConfig:    envJSON,
+			testCases:    []TestCase{{TestCase: "test-uint", Bindings: map[string]any{"count": 10.0}, Expected: true}},
+			wantContains: `"testCase":"test-uint","status":"pass"`,
+			wantErr:      false,
 		},
 		{
 			name:         "failed evaluation (returns false)",
@@ -84,6 +93,22 @@ func TestEvaluateCEL(t *testing.T) {
 			testCases:    []TestCase{{TestCase: "test-4", Bindings: map[string]any{"user": "Alice"}, Expected: false}},
 			wantContains: `"status":"no such attribute(s): age"`,
 			wantErr:      false, // Evaluate is resilient to per-test failures but catches them in the result status
+		},
+		{
+			name:         "runtime error evaluation",
+			expr:         `1 / 0 == 0`,
+			envConfig:    envJSON,
+			testCases:    []TestCase{{TestCase: "test-divzero", Bindings: map[string]any{}, Expected: false}},
+			wantContains: `division by zero`,
+			wantErr:      false,
+		},
+		{
+			name:         "unexpected output type conversion",
+			expr:         `type(1)`,
+			envConfig:    envJSON,
+			testCases:    []TestCase{{TestCase: "test-type-val", Bindings: map[string]any{}, Expected: "int"}},
+			wantContains: `unexpected output type`,
+			wantErr:      false,
 		},
 		{
 			name:      "compile error due to bad syntax",
@@ -211,6 +236,25 @@ func TestEvaluateCEL_WithProtobufInputs(t *testing.T) {
 			},
 			Expected: true,
 		},
+		{
+			TestCase: "pb-direct-proto-instance",
+			Bindings: map[string]any{
+				"msg": &testpb.TestMessage{
+					SingleInt32: 42,
+					SingleNestedMessage: &testpb.TestMessage_NestedMessage{
+						Bb: 100,
+					},
+				},
+			},
+			Expected: true,
+		},
+		{
+			TestCase: "pb-invalid-unmarshal-error",
+			Bindings: map[string]any{
+				"msg": "invalid_string_not_object",
+			},
+			Expected: false,
+		},
 	}
 
 	got, err := EvaluateCEL(expr, envConfig, testCases, cel.Types(&testpb.TestMessage{}))
@@ -218,10 +262,16 @@ func TestEvaluateCEL_WithProtobufInputs(t *testing.T) {
 		t.Fatalf("EvaluateCEL() error = %v", err)
 	}
 
-	if len(got.TestResults) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(got.TestResults))
+	if len(got.TestResults) != 3 {
+		t.Fatalf("expected 3 results, got %d", len(got.TestResults))
 	}
 	if got.TestResults[0].Status != "pass" {
-		t.Errorf("expected pass, got %s", got.TestResults[0].Status)
+		t.Errorf("expected pass for case 0, got %s", got.TestResults[0].Status)
+	}
+	if got.TestResults[1].Status != "pass" {
+		t.Errorf("expected pass for direct proto instance, got %s", got.TestResults[1].Status)
+	}
+	if !strings.Contains(got.TestResults[2].Status, "failed unmarshaling protobuf input") {
+		t.Errorf("expected protobuf unmarshal error for case 2, got %s", got.TestResults[2].Status)
 	}
 }

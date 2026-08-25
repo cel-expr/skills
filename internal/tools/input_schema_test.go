@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"cel.dev/cel-go/cel"
+	"cel.dev/cel-go/common/types"
 
 	testpb "github.com/cel-expr/skills/internal/proto"
 )
@@ -210,5 +211,68 @@ func TestComputeInputSchema(t *testing.T) {
 				t.Errorf("ComputeInputSchema()\nGot:  %v\nWant: %v", gotMap, wantMap)
 			}
 		})
+	}
+}
+
+func TestSchemaNode_Methods(t *testing.T) {
+	node := newSchemaNode("object")
+
+	// Test IsLeaf when empty
+	if node.IsLeaf() {
+		t.Error("expected IsLeaf() false for empty node")
+	}
+
+	// Add ExprRef
+	node.AddExprRef(10, true)
+	if !node.IsLeaf() {
+		t.Error("expected IsLeaf() true after adding leaf ref")
+	}
+
+	// Add duplicate ExprRef (updates leaf to false)
+	node.AddExprRef(10, false)
+	if node.IsLeaf() {
+		t.Error("expected IsLeaf() false after updating duplicate ref")
+	}
+
+	// Test FindType
+	typeMap := map[int64]*types.Type{
+		10: types.StringType,
+	}
+	if node.FindType(typeMap) != types.StringType {
+		t.Errorf("expected StringType, got %v", node.FindType(typeMap))
+	}
+
+	// FindType with missing ID
+	if node.FindType(map[int64]*types.Type{}) != nil {
+		t.Error("expected nil for empty typeMap")
+	}
+
+	// AddPropertyRef (new and existing)
+	prop := node.AddPropertyRef("fieldA", 20, true)
+	if prop == nil {
+		t.Fatal("expected non-nil property node")
+	}
+	existingProp := node.AddPropertyRef("fieldA", 21, false)
+	if existingProp != prop {
+		t.Error("expected same property node for existing property")
+	}
+}
+
+func TestSchemaFromCELType_CustomTypes(t *testing.T) {
+	env, err := cel.NewEnv()
+	if err != nil {
+		t.Fatalf("cel.NewEnv failed: %v", err)
+	}
+
+	customOpaque := types.NewOpaqueType("custom.resource")
+	schema := SchemaFromCELType(env, customOpaque)
+	if schema.TypeID != "custom.resource" {
+		t.Errorf("expected TypeID custom.resource, got %s", schema.TypeID)
+	}
+
+	dynType := types.DynType
+	dynSchema := SchemaFromCELType(env, dynType)
+	if dynSchema.Type != "object" {
+		t.Errorf("expected object for DynType, got %s", dynSchema.Type)
 	}
 }
