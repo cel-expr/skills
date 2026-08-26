@@ -2,3 +2,4 @@ bazel-bin
 bazel-out
 bazel-skills
 bazel-testlogs
+MODULE.bazel.lock
