@@ -40,7 +40,7 @@ jobs:
         run: |
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
-      - name: Build MCP Server Binaries and Packages
+      - name: Build Binaries and Packages
         env:
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
@@ -55,33 +55,44 @@ jobs:
             "windows/amd64"
           )
           
+          # Binaries to build: NAME:PACKAGE
+          BINARIES=(
+            "cel-expr-mcp:./cmd/mcp"
+            "cel-expr:./cmd/cli"
+          )
+          
           for PLATFORM in "${PLATFORMS[@]}"; do
             GOOS="${PLATFORM%/*}"
             GOARCH="${PLATFORM#*/}"
             
-            OUTPUT_NAME="cel-expr-mcp"
-            if [ "$GOOS" = "windows" ]; then
-              OUTPUT_NAME="cel-expr-mcp.exe"
-            fi
-            
-            STAGE_DIR="dist/stage_${GOOS}_${GOARCH}"
-            mkdir -p "$STAGE_DIR"
-            
-            echo "Building cel-expr-mcp for ${GOOS}/${GOARCH}..."
-            CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" go build -ldflags="-s -w" -o "${STAGE_DIR}/${OUTPUT_NAME}" ./cmd/mcp
-            
-            cp LICENSE "$STAGE_DIR/"
-            cp README.md "$STAGE_DIR/"
-            cp GEMINI.md "$STAGE_DIR/"
-            
-            ARCHIVE_NAME="cel-expr-mcp_${TAG#v}_${GOOS}_${GOARCH}"
-            if [ "$GOOS" = "windows" ]; then
-              (cd "$STAGE_DIR" && zip -r "../../dist/${ARCHIVE_NAME}.zip" ./)
-            else
-              tar -czf "dist/${ARCHIVE_NAME}.tar.gz" -C "$STAGE_DIR" .
-            fi
-            
-            rm -rf "$STAGE_DIR"
+            for BINARY in "${BINARIES[@]}"; do
+              BIN_NAME="${BINARY%:*}"
+              BIN_PKG="${BINARY#*:}"
+              
+              OUTPUT_NAME="${BIN_NAME}"
+              if [ "$GOOS" = "windows" ]; then
+                OUTPUT_NAME="${BIN_NAME}.exe"
+              fi
+              
+              STAGE_DIR="dist/stage_${BIN_NAME}_${GOOS}_${GOARCH}"
+              mkdir -p "$STAGE_DIR"
+              
+              echo "Building ${BIN_NAME} for ${GOOS}/${GOARCH}..."
+              CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" go build -ldflags="-s -w" -o "${STAGE_DIR}/${OUTPUT_NAME}" "${BIN_PKG}"
+              
+              cp LICENSE "$STAGE_DIR/"
+              cp README.md "$STAGE_DIR/"
+              cp GEMINI.md "$STAGE_DIR/"
+              
+              ARCHIVE_NAME="${BIN_NAME}_${TAG#v}_${GOOS}_${GOARCH}"
+              if [ "$GOOS" = "windows" ]; then
+                (cd "$STAGE_DIR" && zip -r "../../dist/${ARCHIVE_NAME}.zip" ./)
+              else
+                tar -czf "dist/${ARCHIVE_NAME}.tar.gz" -C "$STAGE_DIR" .
+              fi
+              
+              rm -rf "$STAGE_DIR"
+            done
           done
 
       - name: Generate Checksums
