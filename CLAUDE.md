@@ -5,7 +5,7 @@ Expression Language (CEL) expressions.
 
 ## Project Structure & Architecture
 
--   `cmd/cel-expr`: Unified CLI and MCP server entry point (`cel-expr`).
+-   `cmd/cli`: Unified CLI and MCP server entry point (`cel-expr`).
 -   `cmd/mcp`: Standalone entry point for the Model Context Protocol (MCP) server
     (`cel-expr-mcp`).
 -   `internal/mcp`: MCP server implementation, transport setup, and tool dispatch.
@@ -21,10 +21,10 @@ Expression Language (CEL) expressions.
 
 ### Go CLI
 
--   **Build unified CLI**: `go build ./cmd/cel-expr`
+-   **Build unified CLI**: `go build ./cmd/cli`
 -   **Build MCP server**: `go build ./cmd/mcp`
 -   **Run tests**: `go test ./...`
--   **Run unified CLI**: `go run ./cmd/cel-expr <compile|eval|env|prompt|mcp>`
+-   **Run unified CLI**: `go run ./cmd/cli <compile|eval|env|prompt|mcp>`
 -   **Run MCP server**: `go run ./cmd/mcp`
 
 ### Bazel
