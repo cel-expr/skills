@@ -39,6 +39,7 @@ Usage:
 Available Commands:
   compile     Compile a CEL expression against an environment configuration
   eval        Evaluate a CEL expression against test cases or bindings
+  conformance Evaluate CEL conformance tests from cel-spec textproto files
   env         Validate or inspect an environment configuration
   prompt      Generate an LLM authoring prompt from an environment and requirement
   mcp         Start the Model Context Protocol (MCP) server over stdio
@@ -68,6 +69,8 @@ func run(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
 		return runCompile(cmdArgs, stdout, stderr, stdin)
 	case "eval", "evaluate":
 		return runEval(cmdArgs, stdout, stderr, stdin)
+	case "conformance":
+		return runConformance(cmdArgs, stdout, stderr, stdin)
 	case "env":
 		return runEnv(cmdArgs, stdout, stderr, stdin)
 	case "prompt":
@@ -189,11 +192,12 @@ func runEval(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
 	exprFlag := fs.String("expr", "", "CEL expression string")
 	testsFlag := fs.String("tests", "", "Path to test cases JSON file or inline JSON array")
 	fs.StringVar(testsFlag, "test_cases", "", "Alias for -tests")
+	conformanceFlag := fs.String("conformance", "", "Path to conformance textproto file or inline textproto content")
 	bindingsFlag := fs.String("bindings", "", "Single test case variable bindings JSON file or inline JSON object")
 	expectedFlag := fs.String("expected", "", "Expected output value for single test case binding (JSON literal or string)")
 
 	fs.Usage = func() {
-		fmt.Fprintln(stderr, "Usage: cel-expr eval [-env <path|json>] [-tests <path|json>] [-bindings <path|json>] [expression]")
+		fmt.Fprintln(stderr, "Usage: cel-expr eval [-env <path|json>] [-tests <path|json>] [-conformance <path|textproto>] [-bindings <path|json>] [expression]")
 		fmt.Fprintln(stderr, "\nFlags:")
 		fs.PrintDefaults()
 	}
@@ -209,6 +213,21 @@ func runEval(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
 	if expr == "" && fs.NArg() > 0 {
 		expr = strings.Join(fs.Args(), " ")
 	}
+
+	if *conformanceFlag != "" {
+		conformanceArgs := []string{"-tests", *conformanceFlag}
+		if *envFlag != "" {
+			conformanceArgs = append(conformanceArgs, "-env", *envFlag)
+		}
+		if *fdsFlag != "" {
+			conformanceArgs = append(conformanceArgs, "-fds", *fdsFlag)
+		}
+		if expr != "" {
+			conformanceArgs = append(conformanceArgs, "-expr", expr)
+		}
+		return runConformance(conformanceArgs, stdout, stderr, stdin)
+	}
+
 	if expr == "" {
 		return errors.New("expression is required (use -expr <expr> or pass as argument)")
 	}
@@ -288,6 +307,86 @@ func runEval(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
 		if tr.Status != "pass" {
 			return fmt.Errorf("test case %q did not pass (status: %s)", tr.TestCase, tr.Status)
 		}
+	}
+
+	return nil
+}
+
+func runConformance(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
+	fs := flag.NewFlagSet("conformance", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	envFlag, fdsFlag := parseCommonEnvFlags(fs)
+	testsFlag := fs.String("tests", "", "Path to conformance textproto file or inline textproto content")
+	filterFlag := fs.String("filter", "", "Optional substring filter for test names")
+	skipFlag := fs.String("skip", "", "Comma-separated test prefixes to skip")
+	exprFlag := fs.String("expr", "", "Optional fallback expression if test does not define one")
+
+	fs.Usage = func() {
+		fmt.Fprintln(stderr, "Usage: cel-expr conformance [-tests <path|textproto>] [-filter <name>] [-skip <prefixes>] [-env <path|json>] [-fds <path>] [tests]")
+		fmt.Fprintln(stderr, "\nFlags:")
+		fs.PrintDefaults()
+	}
+
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
+		return err
+	}
+
+	testsVal := *testsFlag
+	if testsVal == "" && fs.NArg() > 0 {
+		testsVal = strings.Join(fs.Args(), " ")
+	}
+	if testsVal == "" {
+		return errors.New("conformance tests are required (use -tests <path|textproto> or pass as argument)")
+	}
+
+	rawTests, err := loadContentOrStdin(testsVal, stdin)
+	if err != nil {
+		return fmt.Errorf("reading conformance tests: %w", err)
+	}
+
+	var cfg *tools.Config
+	var opts []cel.EnvOption
+	if *envFlag != "" || *fdsFlag != "" {
+		var err error
+		cfg, opts, err = loadEnvAndOpts(*envFlag, *fdsFlag, stdin, false)
+		if err != nil {
+			return err
+		}
+	}
+
+	var skipTests []string
+	if *skipFlag != "" {
+		for _, s := range strings.Split(*skipFlag, ",") {
+			s = strings.TrimSpace(s)
+			if s != "" {
+				skipTests = append(skipTests, s)
+			}
+		}
+	}
+
+	res, err := tools.EvaluateConformanceWithParams(tools.ConformanceParams{
+		Tests:        rawTests,
+		Filter:       *filterFlag,
+		SkipTests:    skipTests,
+		EnvConfig:    cfg,
+		FallbackExpr: *exprFlag,
+	}, opts...)
+	if err != nil {
+		return fmt.Errorf("conformance evaluation failed: %w", err)
+	}
+
+	outBytes, err := json.MarshalIndent(res, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed formatting output JSON: %w", err)
+	}
+
+	fmt.Fprintln(stdout, string(outBytes))
+
+	if res.HasFailures() {
+		return fmt.Errorf("%d of %d conformance tests failed", res.Failed, res.Total)
 	}
 
 	return nil

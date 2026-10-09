@@ -4,12 +4,12 @@ go 1.25.0
 
 require (
 	cel.dev/cel-go v0.32.0
+	cel.dev/expr v0.25.3
 	github.com/modelcontextprotocol/go-sdk v1.6.0
 	google.golang.org/protobuf v1.36.10
 )
 
 require (
-	cel.dev/expr v0.25.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/segmentio/asm v1.1.3 // indirect

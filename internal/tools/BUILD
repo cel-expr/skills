@@ -11,6 +11,7 @@ go_library(
     srcs = [
         "compile.go",
         "config.go",
+        "conformance.go",
         "coverage.go",
         "evaluate.go",
         "input_schema.go",
@@ -18,12 +19,18 @@ go_library(
     ],
     deps = [
         "@dev_cel_cel_go//cel",
+        "@dev_cel_cel_go//common",
         "@dev_cel_cel_go//common/ast",
         "@dev_cel_cel_go//common/env",
         "@dev_cel_cel_go//common/types",
         "@dev_cel_cel_go//common/types/ref",
         "@dev_cel_cel_go//ext",
+        "@dev_cel_expr//:expr",
+        "@dev_cel_expr//conformance/proto2:go_default_library",
+        "@dev_cel_expr//conformance/proto3:go_default_library",
+        "@dev_cel_expr//conformance/test:go_default_library",
         "@org_golang_google_protobuf//encoding/protojson",
+        "@org_golang_google_protobuf//encoding/prototext",
         "@org_golang_google_protobuf//proto",
     ],
 )
@@ -33,6 +40,7 @@ go_test(
     srcs = [
         "compile_test.go",
         "config_test.go",
+        "conformance_test.go",
         "coverage_test.go",
         "evaluate_test.go",
         "input_schema_test.go",
@@ -41,10 +49,14 @@ go_test(
     data = glob(["testdata/**"]),
     embed = [":tools"],
     deps = [
+        "//internal/proto:test_schema_go_proto",
         "@dev_cel_cel_go//cel",
         "@dev_cel_cel_go//common/ast",
         "@dev_cel_cel_go//common/env",
         "@dev_cel_cel_go//common/types",
-        "//internal/proto:test_schema_go_proto",
+        "@dev_cel_expr//:expr",
+        "@dev_cel_expr//conformance/test:go_default_library",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/anypb",
     ],
 )

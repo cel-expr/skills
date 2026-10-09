@@ -115,6 +115,10 @@ func NewServer(fixedEnv *tools.Config, opts ...cel.EnvOption) *mcp.Server {
 			Name:        "cel_evaluate",
 			Description: "Evaluates a CEL expression against provided test cases. Returns test case results and coverage.",
 		}, h.handleFixedEnvEvaluate)
+		mcp.AddTool[FixedEnvEvaluateConformanceArgs, any](s, &mcp.Tool{
+			Name:        "cel_evaluate_conformance",
+			Description: "Evaluates CEL conformance tests from a cel-spec textproto file or inline content. Returns test case results and status.",
+		}, h.handleFixedEnvEvaluateConformance)
 	} else {
 		mcp.AddTool[CreateEnvConfigArgs, any](s, &mcp.Tool{
 			Name:        "cel_create_environment",
@@ -132,6 +136,10 @@ func NewServer(fixedEnv *tools.Config, opts ...cel.EnvOption) *mcp.Server {
 			Name:        "cel_evaluate",
 			Description: "Evaluates a CEL expression against provided test cases. Returns test case results and coverage.",
 		}, h.handleEvaluate)
+		mcp.AddTool[EvaluateConformanceArgs, any](s, &mcp.Tool{
+			Name:        "cel_evaluate_conformance",
+			Description: "Evaluates CEL conformance tests from a cel-spec textproto file or inline content. Returns test case results and status.",
+		}, h.handleEvaluateConformance)
 	}
 
 	return s
@@ -175,6 +183,23 @@ type FixedEnvCompileArgs struct {
 type FixedEnvEvaluateArgs struct {
 	Expr      string           `json:"expr" jsonschema_description:"The CEL expression to evaluate."`
 	TestCases []tools.TestCase `json:"testCases" jsonschema_description:"The test cases for evaluation."`
+}
+
+// EvaluateConformanceArgs is the arguments for the cel_evaluate_conformance tool.
+type EvaluateConformanceArgs struct {
+	Tests        string        `json:"tests" jsonschema_description:"Path to conformance textproto file or inline textproto content."`
+	Filter       string        `json:"filter,omitempty" jsonschema_description:"Optional substring filter for test names."`
+	SkipTests    []string      `json:"skipTests,omitempty" jsonschema_description:"Optional list of test name prefixes to skip."`
+	EnvConfig    *tools.Config `json:"envConfig,omitempty" jsonschema_description:"Optional JSON environment configuration."`
+	FallbackExpr string        `json:"fallbackExpr,omitempty" jsonschema_description:"Optional fallback CEL expression."`
+}
+
+// FixedEnvEvaluateConformanceArgs is the arguments for the cel_evaluate_conformance tool when a static environment is configured.
+type FixedEnvEvaluateConformanceArgs struct {
+	Tests        string   `json:"tests" jsonschema_description:"Path to conformance textproto file or inline textproto content."`
+	Filter       string   `json:"filter,omitempty" jsonschema_description:"Optional substring filter for test names."`
+	SkipTests    []string `json:"skipTests,omitempty" jsonschema_description:"Optional list of test name prefixes to skip."`
+	FallbackExpr string   `json:"fallbackExpr,omitempty" jsonschema_description:"Optional fallback CEL expression."`
 }
 
 func (h *toolsHandler) handleCreateEnvConfig(ctx context.Context, request *mcp.CallToolRequest, args CreateEnvConfigArgs) (*mcp.CallToolResult, any, error) {
@@ -247,3 +272,31 @@ func (h *toolsHandler) handleFixedEnvEvaluate(ctx context.Context, request *mcp.
 		TestCases: args.TestCases,
 	})
 }
+
+func (h *toolsHandler) handleEvaluateConformance(ctx context.Context, request *mcp.CallToolRequest, args EvaluateConformanceArgs) (*mcp.CallToolResult, any, error) {
+	envConfig := args.EnvConfig
+	if envConfig == nil {
+		envConfig = h.fixedEnv
+	}
+	res, err := tools.EvaluateConformanceWithParams(tools.ConformanceParams{
+		Tests:        args.Tests,
+		Filter:       args.Filter,
+		SkipTests:    args.SkipTests,
+		EnvConfig:    envConfig,
+		FallbackExpr: args.FallbackExpr,
+	}, h.opts...)
+	if err != nil {
+		return nil, nil, err
+	}
+	return nil, res, nil
+}
+
+func (h *toolsHandler) handleFixedEnvEvaluateConformance(ctx context.Context, request *mcp.CallToolRequest, args FixedEnvEvaluateConformanceArgs) (*mcp.CallToolResult, any, error) {
+	return h.handleEvaluateConformance(ctx, request, EvaluateConformanceArgs{
+		Tests:        args.Tests,
+		Filter:       args.Filter,
+		SkipTests:    args.SkipTests,
+		FallbackExpr: args.FallbackExpr,
+	})
+}
+

@@ -14,8 +14,11 @@ Expression Language (CEL) expressions.
 -   `skills/`: Agent skills directory containing guidelines and workflows:
     -   `cel-authoring`: Authoring, configuring, and testing expressions and
         JSON environment definitions.
+    -   `cel-testing`: Testing and validating expressions against test cases.
     -   `cel-debugging`: Diagnosing and resolving compilation and evaluation
         errors.
+    -   `cel-conformance-testing`: Authoring, evaluating, and publishing CEL
+        conformance tests using the cel-spec textproto format.
 
 ## Build and Test Commands
 
@@ -43,6 +46,8 @@ The `cel-expr-mcp` MCP server provides the following tools for AI agents:
 -   `cel_compile`: Compiles a CEL expression to validate syntax, correctness,
     and type checking against an environment definition.
 -   `cel_evaluate`: Evaluates a compiled expression against provided test cases.
+-   `cel_evaluate_conformance`: Evaluates CEL conformance tests from a cel-spec
+    textproto file or inline content.
 
 ### Startup Flags
 
@@ -60,8 +65,11 @@ To understand how to best use these tools, refer to the skills in `skills/`:
 
 -   `cel-authoring`: Guidelines for creating CEL environment configurations,
     generating expressions, and compiling.
+-   `cel-testing`: Writing and evaluating unit test suites for CEL expressions.
 -   `cel-debugging`: Diagnostic steps for troubleshooting syntax, type, and
     evaluation errors.
+-   `cel-conformance-testing`: Executing and authoring conformance test suites from
+    `cel-spec` textproto definitions.
 
 ## Release & Supply Chain Security
 

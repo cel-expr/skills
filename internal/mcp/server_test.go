@@ -48,10 +48,11 @@ func TestListTools(t *testing.T) {
 	resp := session.Tools(ctx, nil)
 
 	expectedTools := map[string]bool{
-		"cel_compile":            true,
-		"cel_evaluate":           true,
-		"cel_generate_prompt":    true,
-		"cel_create_environment": true,
+		"cel_compile":              true,
+		"cel_evaluate":             true,
+		"cel_evaluate_conformance": true,
+		"cel_generate_prompt":      true,
+		"cel_create_environment":   true,
 	}
 
 	foundTools := make(map[string]bool)
@@ -104,7 +105,7 @@ func TestListTools_WithFixedEnvironment(t *testing.T) {
 		t.Error("cel_create_environment should NOT be exposed when a fixed environment is present")
 	}
 
-	expectedTools := []string{"cel_compile", "cel_evaluate", "cel_generate_prompt"}
+	expectedTools := []string{"cel_compile", "cel_evaluate", "cel_evaluate_conformance", "cel_generate_prompt"}
 	for _, name := range expectedTools {
 		if !foundTools[name] {
 			t.Errorf("expected tool %s not found in ListTools response with fixed environment", name)
@@ -180,6 +181,34 @@ func TestFixedEnvironmentToolsExecution(t *testing.T) {
 	}
 	if promptRes.IsError {
 		t.Errorf("cel_generate_prompt failed: %v", promptRes.Content)
+	}
+
+	// 4. Test cel_evaluate_conformance without envConfig
+	conformanceRes, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "cel_evaluate_conformance",
+		Arguments: map[string]any{
+			"tests": `
+name: "fixed_env_suite"
+section {
+  name: "s"
+  test {
+    name: "t"
+    expr: "foo == 'bar'"
+    bindings {
+      key: "foo"
+      value { value { string_value: "bar" } }
+    }
+    value { bool_value: true }
+  }
+}
+`,
+		},
+	})
+	if err != nil {
+		t.Fatalf("CallTool cel_evaluate_conformance failed: %v", err)
+	}
+	if conformanceRes.IsError {
+		t.Errorf("cel_evaluate_conformance failed: %v", conformanceRes.Content)
 	}
 }
 
@@ -387,6 +416,71 @@ func TestHandleGeneratePrompt(t *testing.T) {
 
 	if len(res.Content) == 0 {
 		t.Error("expected non-empty output content")
+	}
+}
+
+func TestHandleEvaluateConformance(t *testing.T) {
+	ctx := context.Background()
+	h := &toolsHandler{}
+
+	args := EvaluateConformanceArgs{
+		Tests: `
+name: "mcp_conformance"
+section {
+  name: "s"
+  test {
+    name: "t"
+    expr: "10 + 20"
+    value { int64_value: 30 }
+  }
+}
+`,
+	}
+
+	_, rawResult, err := h.handleEvaluateConformance(ctx, &mcp.CallToolRequest{}, args)
+	if err != nil {
+		t.Fatalf("handleEvaluateConformance failed: %v", err)
+	}
+
+	out, ok := rawResult.(*tools.ConformanceOutput)
+	if !ok {
+		t.Fatalf("expected *tools.ConformanceOutput, got %T", rawResult)
+	}
+	if out.Passed != 1 || out.Total != 1 {
+		t.Errorf("expected 1 passed test, got passed=%d, total=%d", out.Passed, out.Total)
+	}
+
+	// Test with SkipTests
+	argsSkip := EvaluateConformanceArgs{
+		Tests: `
+name: "mcp_conformance"
+section {
+  name: "s"
+  test {
+    name: "t"
+    expr: "10 + 20"
+    value { int64_value: 30 }
+  }
+}
+`,
+		SkipTests: []string{"mcp_conformance/s/t"},
+	}
+	_, rawResult, err = h.handleEvaluateConformance(ctx, &mcp.CallToolRequest{}, argsSkip)
+	if err != nil {
+		t.Fatalf("handleEvaluateConformance with SkipTests failed: %v", err)
+	}
+	out = rawResult.(*tools.ConformanceOutput)
+	if out.Skipped != 1 {
+		t.Errorf("expected 1 skipped test, got %d", out.Skipped)
+	}
+
+	// Test error case (invalid syntax)
+	argsErr := EvaluateConformanceArgs{
+		Tests: "invalid textproto content",
+	}
+	_, _, err = h.handleEvaluateConformance(ctx, &mcp.CallToolRequest{}, argsErr)
+	if err == nil {
+		t.Error("expected error for invalid conformance content, got nil")
 	}
 }
 

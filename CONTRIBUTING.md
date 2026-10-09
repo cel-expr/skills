@@ -63,4 +63,4 @@ asking for a new review. There is no commitment to resolution -- merging
 or closing a pull request, or fixing or closing an issue -- because some
 issues will require more discussion than others.
 
-[1]:  https://github.com/google/cel-spec
+[1]:  https://github.com/cel-expr/cel-spec

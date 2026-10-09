@@ -41,6 +41,7 @@ func TestCLI_UsageAndHelp(t *testing.T) {
 		{"eval help", []string{"help", "eval"}},
 		{"env help", []string{"help", "env"}},
 		{"prompt help", []string{"help", "prompt"}},
+		{"conformance help", []string{"help", "conformance"}},
 		{"mcp help", []string{"help", "mcp"}},
 	}
 
@@ -342,3 +343,79 @@ func TestCLI_MCP_Errors(t *testing.T) {
 		t.Error("expected error when starting MCP server with invalid env, got nil")
 	}
 }
+
+func TestCLI_Conformance(t *testing.T) {
+	textprotoContent := `
+name: "cli_conformance"
+section {
+  name: "s1"
+  test {
+    name: "t1"
+    expr: "1 + 2"
+    value { int64_value: 3 }
+  }
+  test {
+    name: "t2"
+    expr: "3 * 4"
+    value { int64_value: 12 }
+  }
+}
+`
+	tmpFile := filepath.Join(t.TempDir(), "tests.textproto")
+	if err := os.WriteFile(tmpFile, []byte(textprotoContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name    string
+		args    []string
+		wantErr bool
+	}{
+		{
+			name:    "conformance with -tests flag",
+			args:    []string{"conformance", "-tests", tmpFile},
+			wantErr: false,
+		},
+		{
+			name:    "conformance with positional argument",
+			args:    []string{"conformance", tmpFile},
+			wantErr: false,
+		},
+		{
+			name:    "conformance with -filter flag",
+			args:    []string{"conformance", "-tests", tmpFile, "-filter", "t1"},
+			wantErr: false,
+		},
+		{
+			name:    "eval with -conformance flag alias",
+			args:    []string{"eval", "-conformance", tmpFile},
+			wantErr: false,
+		},
+		{
+			name:    "eval with -conformance and positional expr",
+			args:    []string{"eval", "-conformance", tmpFile, "1 + 2"},
+			wantErr: false,
+		},
+		{
+			name:    "conformance missing tests",
+			args:    []string{"conformance"},
+			wantErr: true,
+		},
+		{
+			name:    "conformance failing test",
+			args:    []string{"conformance", `name:"fail" section { name:"s" test { name:"t" expr:"1" value { int64_value: 2 } } }`},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			err := run(tt.args, &stdout, &stderr, nil)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("run(%v) error = %v, wantErr %v (stdout: %s, stderr: %s)", tt.args, err, tt.wantErr, stdout.String(), stderr.String())
+			}
+		})
+	}
+}
+

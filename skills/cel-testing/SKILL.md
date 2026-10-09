@@ -2,7 +2,7 @@
 name: cel-testing
 description: >-
   Skill for testing Google Common Expression Language (CEL) expressions.
-  Use to test or validate an existing CEL rule.
+  Use to test or validate expressions.
 ---
 
 # Google Common Expression Language (CEL) Testing Skill
