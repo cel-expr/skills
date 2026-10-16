@@ -63,6 +63,18 @@ func TestGeneratePrompt(t *testing.T) {
 			wantInRes:  nil,
 			wantErr:    true,
 		},
+		{
+			name: "stdlib subsetting prompt",
+			envConfig: &Config{
+				StdLib: &LibrarySubset{
+					ExcludeFunctions: []*FunctionSubset{{Name: "matches"}, {Name: "dyn"}},
+				},
+				Variables: []*Variable{{Name: "foo", Type: "string"}},
+			},
+			userPrompt: "check if foo starts with bar",
+			wantInRes:  []string{"foo", "string", "check if foo starts with bar"},
+			wantErr:    false,
+		},
 	}
 
 	for _, tt := range tests {

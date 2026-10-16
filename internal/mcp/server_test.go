@@ -633,6 +633,14 @@ func TestLoadFileDescriptorSet(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
+	corruptPath := filepath.Join(tmpDir, "corrupt.pb")
+	if err := os.WriteFile(corruptPath, []byte{0xff, 0xff, 0xff}, 0644); err != nil {
+		t.Fatalf("failed writing corrupt FDS file: %v", err)
+	}
+	if _, err := LoadFileDescriptorSet(corruptPath); err == nil {
+		t.Error("expected error for corrupt protobuf file, got nil")
+	}
+
 	fds := &descpb.FileDescriptorSet{}
 	validBytes, err := proto.Marshal(fds)
 	if err != nil {
@@ -728,5 +736,59 @@ func TestToolHandlers_ErrorPaths(t *testing.T) {
 				t.Errorf("%s: expected error, got nil", tt.name)
 			}
 		})
+	}
+}
+
+func TestStdLibSubsettingTools(t *testing.T) {
+	ctx := context.Background()
+	subsetEnv := &tools.Config{
+		Name: "subset_env",
+		StdLib: &tools.LibrarySubset{
+			ExcludeFunctions: []*tools.FunctionSubset{
+				{Name: "matches"},
+				{Name: "dyn"},
+			},
+		},
+		Variables: []*tools.Variable{
+			{Name: "foo", Type: "string"},
+		},
+	}
+
+	h := &toolsHandler{}
+
+	// 1. handleCreateEnvConfig with stdlib subset
+	if _, _, err := h.handleCreateEnvConfig(ctx, &mcp.CallToolRequest{}, CreateEnvConfigArgs{EnvConfig: subsetEnv}); err != nil {
+		t.Fatalf("handleCreateEnvConfig with stdlib subset failed: %v", err)
+	}
+
+	// 2. handleCompile with allowed and excluded stdlib functions
+	if _, _, err := h.handleCompile(ctx, &mcp.CallToolRequest{}, CompileArgs{
+		EnvConfig: subsetEnv,
+		Expr:      "foo.startsWith('a')",
+	}); err != nil {
+		t.Fatalf("handleCompile with allowed stdlib function failed: %v", err)
+	}
+	if _, _, err := h.handleCompile(ctx, &mcp.CallToolRequest{}, CompileArgs{
+		EnvConfig: subsetEnv,
+		Expr:      "foo.matches('^a.*')",
+	}); err == nil {
+		t.Fatal("handleCompile with excluded stdlib function succeeded, expected error")
+	}
+
+	// 3. handleEvaluate with stdlib subset
+	if _, _, err := h.handleEvaluate(ctx, &mcp.CallToolRequest{}, EvaluateArgs{
+		EnvConfig: subsetEnv,
+		Expr:      "foo.startsWith('a')",
+		TestCases: []tools.TestCase{{TestCase: "starts", Bindings: map[string]any{"foo": "abc"}, Expected: true}},
+	}); err != nil {
+		t.Fatalf("handleEvaluate with stdlib subset failed: %v", err)
+	}
+
+	// 4. handleGeneratePrompt with stdlib subset
+	if _, _, err := h.handleGeneratePrompt(ctx, &mcp.CallToolRequest{}, GeneratePromptArgs{
+		EnvConfig:  subsetEnv,
+		UserPrompt: "check if foo starts with a",
+	}); err != nil {
+		t.Fatalf("handleGeneratePrompt with stdlib subset failed: %v", err)
 	}
 }

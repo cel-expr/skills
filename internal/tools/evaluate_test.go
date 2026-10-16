@@ -158,6 +158,28 @@ func TestEvaluateCEL(t *testing.T) {
 			wantContains: `"testCase":"test-no-bindings","status":"pass"`,
 			wantErr:      false,
 		},
+		{
+			name:         "evaluation result does not match expected",
+			expr:         `user == "Alice"`,
+			envConfig:    envJSON,
+			testCases:    []TestCase{{TestCase: "test-mismatch", Bindings: map[string]any{"user": "Bob"}, Expected: true}},
+			wantContains: `"status":"failed: got false, expected true"`,
+			wantErr:      false,
+		},
+		{
+			name: "stdlib subsetting evaluation",
+			expr: `user.startsWith("A")`,
+			envConfig: &Config{
+				Name: "subset",
+				StdLib: &LibrarySubset{
+					ExcludeFunctions: []*FunctionSubset{{Name: "matches"}, {Name: "dyn"}},
+				},
+				Variables: []*Variable{{Name: "user", Type: "string"}},
+			},
+			testCases:    []TestCase{{TestCase: "test-subset", Bindings: map[string]any{"user": "Alice"}, Expected: true}},
+			wantContains: `"testCase":"test-subset","status":"pass"`,
+			wantErr:      false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -272,6 +294,13 @@ func TestEvaluateCEL_WithProtobufInputs(t *testing.T) {
 			},
 			Expected: false,
 		},
+		{
+			TestCase: "pb-marshal-error",
+			Bindings: map[string]any{
+				"msg": make(chan int),
+			},
+			Expected: false,
+		},
 	}
 
 	got, err := EvaluateCEL(expr, envConfig, testCases, cel.Types(&testpb.TestMessage{}))
@@ -279,8 +308,8 @@ func TestEvaluateCEL_WithProtobufInputs(t *testing.T) {
 		t.Fatalf("EvaluateCEL() error = %v", err)
 	}
 
-	if len(got.TestResults) != 3 {
-		t.Fatalf("expected 3 results, got %d", len(got.TestResults))
+	if len(got.TestResults) != 4 {
+		t.Fatalf("expected 4 results, got %d", len(got.TestResults))
 	}
 	if got.TestResults[0].Status != "pass" {
 		t.Errorf("expected pass for case 0, got %s", got.TestResults[0].Status)
@@ -290,5 +319,8 @@ func TestEvaluateCEL_WithProtobufInputs(t *testing.T) {
 	}
 	if !strings.Contains(got.TestResults[2].Status, "failed unmarshaling protobuf input") {
 		t.Errorf("expected protobuf unmarshal error for case 2, got %s", got.TestResults[2].Status)
+	}
+	if !strings.Contains(got.TestResults[3].Status, "failed marshaling JSON value") {
+		t.Errorf("expected JSON marshal error for case 3, got %s", got.TestResults[3].Status)
 	}
 }

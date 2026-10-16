@@ -342,6 +342,89 @@ func TestCLI_MCP_Errors(t *testing.T) {
 	if err == nil {
 		t.Error("expected error when starting MCP server with invalid env, got nil")
 	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if err := run([]string{"mcp", "-unknown-flag"}, &stdout, &stderr, nil); err == nil {
+		t.Error("expected error for unknown flag in mcp command, got nil")
+	}
+}
+
+func TestCLI_AdditionalErrorAndFlagPaths(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+
+	// Unknown flags for compile, eval, env, prompt
+	for _, cmd := range []string{"compile", "eval", "env", "prompt"} {
+		stdout.Reset()
+		stderr.Reset()
+		if err := run([]string{cmd, "-unknown-flag"}, &stdout, &stderr, nil); err == nil {
+			t.Errorf("expected error for unknown flag in %s command, got nil", cmd)
+		}
+	}
+
+	// Eval with plain non-JSON expected string and invalid env JSON
+	stdout.Reset()
+	stderr.Reset()
+	if err := run([]string{"eval", "-expected", "hello", "'hello'"}, &stdout, &stderr, nil); err != nil {
+		t.Errorf("expected eval with plain string expected flag to succeed, got: %v", err)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if err := run([]string{"eval", "-env", "{invalid_json", "'hello'"}, &stdout, &stderr, nil); err == nil {
+		t.Error("expected error for invalid env JSON in eval command, got nil")
+	}
+
+	// Prompt with invalid env JSON and invalid variable type
+	stdout.Reset()
+	stderr.Reset()
+	if err := run([]string{"prompt", "-env", "{invalid_json", "-prompt", "check"}, &stdout, &stderr, nil); err == nil {
+		t.Error("expected error for invalid env JSON in prompt command, got nil")
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if err := run([]string{"prompt", "-env", `{"variables":[{"name":"x","type":"unknown_type_xxx"}]}`, "-prompt", "check"}, &stdout, &stderr, nil); err == nil {
+		t.Error("expected error for invalid variable type in prompt command, got nil")
+	}
+}
+
+func TestCLI_StdLibSubsetting(t *testing.T) {
+	subsetEnvJSON := `{"name":"subset_env","stdlib":{"excludeFunctions":[{"name":"matches"},{"name":"dyn"}]},"variables":[{"name":"s","type":"string"}]}`
+
+	var stdout, stderr bytes.Buffer
+
+	// 1. env validation
+	if err := run([]string{"env", "-env", subsetEnvJSON}, &stdout, &stderr, nil); err != nil {
+		t.Fatalf("run(env) with stdlib subset failed: %v", err)
+	}
+
+	// 2. compile allowed vs excluded function
+	stdout.Reset()
+	stderr.Reset()
+	if err := run([]string{"compile", "-env", subsetEnvJSON, "s.startsWith('a')"}, &stdout, &stderr, nil); err != nil {
+		t.Fatalf("run(compile) with allowed stdlib function failed: %v", err)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if err := run([]string{"compile", "-env", subsetEnvJSON, "s.matches('^a.*')"}, &stdout, &stderr, nil); err == nil {
+		t.Fatal("run(compile) with excluded stdlib function succeeded, expected error")
+	}
+
+	// 3. eval with stdlib subset
+	stdout.Reset()
+	stderr.Reset()
+	if err := run([]string{"eval", "-env", subsetEnvJSON, "-bindings", `{"s":"abc"}`, "-expected", "true", "s.startsWith('a')"}, &stdout, &stderr, nil); err != nil {
+		t.Fatalf("run(eval) with stdlib subset failed: %v", err)
+	}
+
+	// 4. prompt with stdlib subset
+	stdout.Reset()
+	stderr.Reset()
+	if err := run([]string{"prompt", "-env", subsetEnvJSON, "-prompt", "check if s starts with a"}, &stdout, &stderr, nil); err != nil {
+		t.Fatalf("run(prompt) with stdlib subset failed: %v", err)
+	}
 }
 
 func TestCLI_Conformance(t *testing.T) {

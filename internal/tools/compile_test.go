@@ -63,6 +63,35 @@ func TestCompileCEL(t *testing.T) {
 			envConfig: &Config{Variables: []*Variable{{Name: "user", Type: "string"}, {Name: "user", Type: "int"}}}, // duplicate variable
 			wantErr:   true,
 		},
+		{
+			name: "stdlib subsetting allows non-excluded functions",
+			expr: `user.startsWith("A") && age > 18`,
+			envConfig: &Config{
+				Name: "subset",
+				StdLib: &LibrarySubset{
+					ExcludeFunctions: []*FunctionSubset{{Name: "matches"}, {Name: "dyn"}},
+				},
+				Variables: []*Variable{
+					{Name: "user", Type: "string"},
+					{Name: "age", Type: "int"},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "stdlib subsetting rejects excluded functions",
+			expr: `user.matches("^A.*")`,
+			envConfig: &Config{
+				Name: "subset",
+				StdLib: &LibrarySubset{
+					ExcludeFunctions: []*FunctionSubset{{Name: "matches"}, {Name: "dyn"}},
+				},
+				Variables: []*Variable{
+					{Name: "user", Type: "string"},
+				},
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

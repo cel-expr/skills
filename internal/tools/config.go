@@ -325,7 +325,7 @@ func EnvFromConfig(envConfig *Config, opts ...cel.EnvOption) (*cel.Env, error) {
 	}
 	envOpts := append([]cel.EnvOption{}, opts...)
 	envOpts = append(envOpts, cel.FromConfig(celConfig, celext.ExtensionOptionFactory))
-	return cel.NewEnv(envOpts...)
+	return cel.NewCustomEnv(envOpts...)
 }
 
 func parseType(text string) (*celenv.TypeDesc, error) {

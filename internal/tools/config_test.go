@@ -20,7 +20,9 @@ import (
 	"strings"
 	"testing"
 
+	"cel.dev/cel-go/cel"
 	celenv "cel.dev/cel-go/common/env"
+	testpb "github.com/cel-expr/skills/internal/proto"
 )
 
 func TestConfigFromJSON(t *testing.T) {
@@ -86,10 +88,19 @@ func mustJSONMarshal(t *testing.T, v any) []byte {
 
 func TestEnvFromConfig(t *testing.T) {
 	tests := []struct {
-		name    string
-		envJSON *Config
-		wantErr bool
+		name        string
+		envJSON     *Config
+		opts        []cel.EnvOption
+		wantErr     bool
+		validExpr   string
+		invalidExpr string
 	}{
+		{
+			name:      "nil env config uses full stdlib",
+			envJSON:   nil,
+			wantErr:   false,
+			validExpr: `"hello".matches("^h.*") && [1, 2].all(x, x > 0)`,
+		},
 		{
 			name: "valid env config",
 			envJSON: &Config{
@@ -98,18 +109,159 @@ func TestEnvFromConfig(t *testing.T) {
 					{Name: "user_name", Type: "string"},
 				},
 			},
-			wantErr: false,
+			wantErr:   false,
+			validExpr: `user_name.matches("^[a-z]+$")`,
+		},
+		{
+			name: "stdlib subsetting with excludeFunctions",
+			envJSON: &Config{
+				Name: "subset_env",
+				StdLib: &LibrarySubset{
+					ExcludeFunctions: []*FunctionSubset{
+						{Name: "matches"},
+						{Name: "dyn"},
+					},
+				},
+				Variables: []*Variable{
+					{Name: "user_name", Type: "string"},
+				},
+			},
+			wantErr:     false,
+			validExpr:   `user_name.startsWith("a")`,
+			invalidExpr: `user_name.matches("^[a-z]+$")`,
+		},
+		{
+			name: "stdlib subsetting with excludeFunctions specific overload",
+			envJSON: &Config{
+				Name: "subset_overload_env",
+				StdLib: &LibrarySubset{
+					ExcludeFunctions: []*FunctionSubset{
+						{Name: "_+_", OverloadIDs: []string{"add_string"}},
+					},
+				},
+			},
+			wantErr:     false,
+			validExpr:   `1 + 2 == 3`,
+			invalidExpr: `"a" + "b" == "ab"`,
+		},
+		{
+			name: "stdlib subsetting with includeFunctions",
+			envJSON: &Config{
+				Name: "include_funcs_env",
+				StdLib: &LibrarySubset{
+					IncludeFunctions: []*FunctionSubset{
+						{Name: "_==_"},
+						{Name: "size"},
+					},
+				},
+				Variables: []*Variable{
+					{Name: "user_name", Type: "string"},
+				},
+			},
+			wantErr:     false,
+			validExpr:   `user_name.size() == 5`,
+			invalidExpr: `user_name.startsWith("a")`,
+		},
+		{
+			name: "stdlib subsetting with disableMacros",
+			envJSON: &Config{
+				Name: "disable_macros_env",
+				StdLib: &LibrarySubset{
+					DisableMacros: true,
+				},
+			},
+			wantErr:     false,
+			validExpr:   `1 + 1 == 2`,
+			invalidExpr: `[1, 2].all(x, x > 0)`,
+		},
+		{
+			name: "stdlib subsetting with excludeMacros",
+			envJSON: &Config{
+				Name: "exclude_macros_env",
+				StdLib: &LibrarySubset{
+					ExcludeMacros: []string{"has"},
+				},
+				Variables: []*Variable{
+					{Name: "m", Type: "map<string, string>"},
+				},
+			},
+			wantErr:     false,
+			validExpr:   `[1, 2].all(x, x > 0)`,
+			invalidExpr: `has(m.foo)`,
+		},
+		{
+			name: "stdlib subsetting with includeMacros",
+			envJSON: &Config{
+				Name: "include_macros_env",
+				StdLib: &LibrarySubset{
+					IncludeMacros: []string{"has"},
+				},
+				Variables: []*Variable{
+					{Name: "m", Type: "map<string, string>"},
+				},
+			},
+			wantErr:     false,
+			validExpr:   `has(m.foo)`,
+			invalidExpr: `[1, 2].all(x, x > 0)`,
+		},
+		{
+			name: "stdlib subsetting with disabled stdlib",
+			envJSON: &Config{
+				Name: "disabled_stdlib_env",
+				StdLib: &LibrarySubset{
+					Disabled: true,
+				},
+				Variables: []*Variable{
+					{Name: "flag", Type: "bool"},
+				},
+			},
+			wantErr:     false,
+			validExpr:   `flag`,
+			invalidExpr: `1 + 1 == 2`,
+		},
+		{
+			name: "context variable with protobuf type",
+			envJSON: &Config{
+				Name: "ctx_var_env",
+				ContextVariable: &ContextVariable{
+					Type: "cel.skills.internal.proto.TestMessage",
+				},
+			},
+			opts:      []cel.EnvOption{cel.Types(&testpb.TestMessage{})},
+			wantErr:   false,
+			validExpr: `single_int32 == 42`,
+		},
+		{
+			name: "invalid stdlib subsetting both include and exclude functions",
+			envJSON: &Config{
+				Name: "invalid_subset_env",
+				StdLib: &LibrarySubset{
+					IncludeFunctions: []*FunctionSubset{{Name: "size"}},
+					ExcludeFunctions: []*FunctionSubset{{Name: "matches"}},
+				},
+			},
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			env, err := EnvFromConfig(tt.envJSON)
+			env, err := EnvFromConfig(tt.envJSON, tt.opts...)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("EnvFromJSON() error = %v, wantErr %v", err, tt.wantErr)
+				t.Fatalf("EnvFromConfig() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !tt.wantErr && env == nil {
-				t.Errorf("EnvFromJSON() returned nil env without error")
+				t.Fatalf("EnvFromConfig() returned nil env without error")
+			}
+			if tt.validExpr != "" {
+				if _, iss := env.Compile(tt.validExpr); iss.Err() != nil {
+					t.Errorf("env.Compile(%q) unexpected error: %v", tt.validExpr, iss.Err())
+				}
+			}
+			if tt.invalidExpr != "" {
+				if _, iss := env.Compile(tt.invalidExpr); iss.Err() == nil {
+					t.Errorf("env.Compile(%q) succeeded, expected error due to excluded stdlib function", tt.invalidExpr)
+				}
 			}
 		})
 	}
@@ -178,6 +330,18 @@ func TestConfigToCEL(t *testing.T) {
 
 	if len(celConfig.Features) != 1 || celConfig.Features[0].Name != "enable_macro_call_tracking" {
 		t.Errorf("ToCELConfig() Features not mapped correctly")
+	}
+
+	ctxConfig := &Config{
+		Name:            "ctx_config",
+		ContextVariable: &ContextVariable{Type: "test.v1.TestMessage"},
+	}
+	celCtxConfig, err := ctxConfig.ToCELConfig()
+	if err != nil {
+		t.Fatalf("ToCELConfig() for ContextVariable failed: %v", err)
+	}
+	if celCtxConfig.ContextVariable == nil || celCtxConfig.ContextVariable.TypeName != "test.v1.TestMessage" {
+		t.Errorf("ToCELConfig() ContextVariable not mapped correctly")
 	}
 }
 
