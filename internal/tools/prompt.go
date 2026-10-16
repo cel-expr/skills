@@ -29,9 +29,17 @@ func GeneratePrompt(envConfig *Config, userPrompt string, opts ...cel.EnvOption)
 	if err != nil {
 		return "", fmt.Errorf("EnvFromConfig(envConfig) failed: %v", err)
 	}
-	prompt, err := cel.AuthoringPrompt(env)
-	if err != nil {
-		return "", fmt.Errorf("cel.AuthoringPrompt(env) failed: %v", err)
+	var prompt *cel.Prompt
+	if len(opts) > 0 {
+		prompt, err = cel.AuthoringPromptWithFieldPaths(env)
+		if err != nil {
+			return "", fmt.Errorf("cel.AuthoringPromptWithFieldPaths(env) failed: %v", err)
+		}
+	} else {
+		prompt, err = cel.AuthoringPrompt(env)
+		if err != nil {
+			return "", fmt.Errorf("cel.AuthoringPrompt(env) failed: %v", err)
+		}
 	}
 	return prompt.Render(userPrompt), nil
 }

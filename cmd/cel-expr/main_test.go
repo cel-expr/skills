@@ -361,6 +361,18 @@ func TestCLI_WithFileDescriptorSet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("eval with FDS failed: %v", err)
 	}
+
+	stdout.Reset()
+	stderr.Reset()
+	err = run([]string{"prompt", "-env", pbEnv, "-fds", validFdsPath, "-prompt", "check nested bb"}, &stdout, &stderr, nil)
+	if err != nil {
+		t.Fatalf("prompt with FDS failed: %v", err)
+	}
+	for _, want := range []string{"msg.single_int32", "msg.single_nested_message.bb"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Errorf("expected field path %q in prompt with FDS output, got:\n%s", want, stdout.String())
+		}
+	}
 }
 
 type errReader struct{}

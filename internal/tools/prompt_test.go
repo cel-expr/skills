@@ -20,6 +20,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"cel.dev/cel-go/cel"
+	testpb "github.com/cel-expr/skills/internal/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
+	descpb "google.golang.org/protobuf/types/descriptorpb"
 )
 
 func TestGeneratePrompt(t *testing.T) {
@@ -80,6 +85,28 @@ func TestGeneratePrompt(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestGeneratePromptWithFieldPaths(t *testing.T) {
+	fdProto := protodesc.ToFileDescriptorProto((&testpb.TestMessage{}).ProtoReflect().Descriptor().ParentFile())
+	fds := &descpb.FileDescriptorSet{
+		File: []*descpb.FileDescriptorProto{fdProto},
+	}
+	envConfig := &Config{
+		Variables: []*Variable{
+			{Name: "msg", Type: "cel.skills.internal.proto.TestMessage"},
+		},
+	}
+
+	got, err := GeneratePrompt(envConfig, "check nested bb", cel.TypeDescs(fds))
+	if err != nil {
+		t.Fatalf("GeneratePrompt() with TypeDescs error = %v", err)
+	}
+	for _, want := range []string{"msg.single_int32", "msg.single_nested_message.bb", "check nested bb"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("GeneratePrompt() with TypeDescs result missing %q; got:\n%s", want, got)
+		}
 	}
 }
 

@@ -59,5 +59,7 @@ go_test(
         "@dev_cel_expr//conformance/test:go_default_library",
         "@org_golang_google_protobuf//proto",
         "@org_golang_google_protobuf//types/known/anypb",
+        "@org_golang_google_protobuf//reflect/protodesc",
+        "@org_golang_google_protobuf//types/descriptorpb",
     ],
 )
