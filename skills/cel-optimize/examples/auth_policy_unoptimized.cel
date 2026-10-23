@@ -1,0 +1,6 @@
+user.age >= 18 && user.age > 12 &&
+(user.role == 'admin' || user.role == 'editor' || user.role == 'viewer') &&
+(request.method == 'GET' || (request.method == 'GET' && request.path.startsWith('/api/v1/'))) &&
+'authorization' in request.headers &&
+request.headers['authorization'].lowerAscii().startsWith('bearer ') &&
+request.headers['authorization'].lowerAscii().size() > 14

@@ -1,0 +1,44 @@
+{
+  "name": "auth_policy_env",
+  "extensions": [
+    {
+      "name": "bindings",
+      "version": "latest"
+    },
+    {
+      "name": "optional",
+      "version": "latest"
+    },
+    {
+      "name": "strings",
+      "version": "latest"
+    }
+  ],
+  "variables": [
+    {
+      "name": "request.method",
+      "type": "string",
+      "description": "HTTP request method, e.g. GET, POST"
+    },
+    {
+      "name": "request.path",
+      "type": "string",
+      "description": "HTTP request path"
+    },
+    {
+      "name": "request.headers",
+      "type": "map<string, string>",
+      "description": "HTTP request headers with lowercase keys"
+    },
+    {
+      "name": "user.role",
+      "type": "string",
+      "description": "User role identifier"
+    },
+    {
+      "name": "user.age",
+      "type": "int",
+      "description": "User age in years"
+    }
+  ]
+}

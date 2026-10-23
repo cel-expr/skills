@@ -1,0 +1,91 @@
+[
+  {
+    "testCase": "Valid adult editor GET request with bearer token",
+    "bindings": {
+      "request.method": "GET",
+      "request.path": "/api/v1/items",
+      "request.headers": {
+        "authorization": "Bearer secret_token_123"
+      },
+      "user.role": "editor",
+      "user.age": 25
+    },
+    "expected": true
+  },
+  {
+    "testCase": "Underage user rejected",
+    "bindings": {
+      "request.method": "GET",
+      "request.path": "/api/v1/items",
+      "request.headers": {
+        "authorization": "Bearer secret_token_123"
+      },
+      "user.role": "admin",
+      "user.age": 16
+    },
+    "expected": false
+  },
+  {
+    "testCase": "Unauthorized role rejected",
+    "bindings": {
+      "request.method": "GET",
+      "request.path": "/api/v1/items",
+      "request.headers": {
+        "authorization": "Bearer secret_token_123"
+      },
+      "user.role": "guest",
+      "user.age": 30
+    },
+    "expected": false
+  },
+  {
+    "testCase": "Non-GET method rejected",
+    "bindings": {
+      "request.method": "POST",
+      "request.path": "/api/v1/items",
+      "request.headers": {
+        "authorization": "Bearer secret_token_123"
+      },
+      "user.role": "admin",
+      "user.age": 30
+    },
+    "expected": false
+  },
+  {
+    "testCase": "Missing authorization header rejected",
+    "bindings": {
+      "request.method": "GET",
+      "request.path": "/api/v1/items",
+      "request.headers": {},
+      "user.role": "viewer",
+      "user.age": 20
+    },
+    "expected": false
+  },
+  {
+    "testCase": "Short bearer token rejected",
+    "bindings": {
+      "request.method": "GET",
+      "request.path": "/api/v1/items",
+      "request.headers": {
+        "authorization": "Bearer 123"
+      },
+      "user.role": "viewer",
+      "user.age": 20
+    },
+    "expected": false
+  },
+  {
+    "testCase": "Non-bearer authorization scheme rejected",
+    "bindings": {
+      "request.method": "GET",
+      "request.path": "/api/v1/items",
+      "request.headers": {
+        "authorization": "Basic dXNlcjpwYXNzd29yZA=="
+      },
+      "user.role": "viewer",
+      "user.age": 20
+    },
+    "expected": false
+  }
+]

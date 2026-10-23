@@ -1,7 +1,7 @@
 # Common Expression Language (CEL) Skills
 
-This repository provides tools and skills to author, test, and debug Common
-Expression Language (CEL) expressions.
+This repository provides tools and skills to author, test, debug, and optimize
+Common Expression Language (CEL) expressions.
 
 ## Project Structure & Architecture
 
@@ -14,11 +14,14 @@ Expression Language (CEL) expressions.
 -   `skills/`: Agent skills directory containing guidelines and workflows:
     -   `cel-authoring`: Authoring, configuring, and testing expressions and
         JSON environment definitions.
-    -   `cel-testing`: Testing and validating expressions against test cases.
     -   `cel-debugging`: Diagnosing and resolving compilation and evaluation
         errors.
+    -   `cel-testing`: Testing and validating expressions against test cases.
+    -   `cel-optimize`: Optimizing and simplifying expressions and formally
+        proving semantic equivalence using the CEL-Java Verifier.
     -   `cel-conformance-testing`: Authoring, evaluating, and publishing CEL
         conformance tests using the cel-spec textproto format.
+
 
 ## Build and Test Commands
 
@@ -65,9 +68,12 @@ To understand how to best use these tools, refer to the skills in `skills/`:
 
 -   `cel-authoring`: Guidelines for creating CEL environment configurations,
     generating expressions, and compiling.
--   `cel-testing`: Writing and evaluating unit test suites for CEL expressions.
 -   `cel-debugging`: Diagnostic steps for troubleshooting syntax, type, and
     evaluation errors.
+-   `cel-testing`: Workflow for generating comprehensive test suites and
+    achieving high branch and node coverage.
+-   `cel-optimize`: Guidelines for simplifying redundant CEL expressions and
+    formally proving semantic equivalence with `cel-verifier`.
 -   `cel-conformance-testing`: Executing and authoring conformance test suites from
     `cel-spec` textproto definitions.
 
