@@ -1,0 +1,7 @@
+user.age >= 18 &&
+user.role in ['admin', 'editor', 'viewer'] &&
+request.method == 'GET' &&
+'authorization' in request.headers &&
+cel.bind(auth, request.headers['authorization'].lowerAscii(),
+  auth.startsWith('bearer ') && auth.size() > 14
+)

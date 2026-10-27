@@ -29,6 +29,9 @@ Add the following block to your personal configuration file at
       "path": "<path-to-cel-skills>/skills/cel-testing"
     },
     {
+      "path": "<path-to-cel-skills>/skills/cel-optimize"
+    },
+    {
       "path": "<path-to-cel-skills>/skills/cel-doc-generator"
     }
   ]
@@ -70,6 +73,31 @@ go build -o cel-expr ./cmd/cel-expr
 ```
 
 Ensure `cel-expr` is on your `$PATH` (or aliased as above) so the agent can execute it.
+
+## Formal Verification Tooling (`cel-verifier`)
+
+The `cel-optimize` skill uses the standalone `cel-verifier` CLI to formally
+prove semantic equivalence and invariants via Z3 SMT solving:
+
+-   `cel-verifier verify-equiv --expr1 <expr> --expr2 <expr>`
+    `--var <name>:<type>`: Proves logical equivalence between two CEL
+    expressions across all inputs.
+-   `cel-verifier check-sat --expr <expr> --var <name>:<type>`: Checks
+    satisfiability and generates witness inputs.
+-   `cel-verifier check-valid --expr <expr> --var <name>:<type>`: Proves
+    validity (`isAlwaysTrue`) and generates counterexamples on violation.
+-   `cel-verifier verify-policy --file <policy.yaml> --var <name>:<type>`:
+    Verifies invariants on a YAML policy file.
+
+### Installing `cel-verifier`
+
+Configure the `cel-verifier` CLI alias:
+
+```bash
+# Download the cel-java verifier-cli JAR from Maven Central (requires Java 8+)
+curl -fsSL --create-dirs -o "$HOME/.local/lib/cel/verifier-cli-0.14.0.jar" https://repo1.maven.org/maven2/dev/cel/verifier-cli/0.14.0/verifier-cli-0.14.0.jar
+alias cel-verifier="java -jar $HOME/.local/lib/cel/verifier-cli-0.14.0.jar"
+```
 
 ## Releases & Verification
 
