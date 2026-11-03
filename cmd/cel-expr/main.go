@@ -88,14 +88,16 @@ func run(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
 	}
 }
 
-func parseCommonEnvFlags(fs *flag.FlagSet) (envPath *string, fdsPath *string) {
+func parseCommonEnvFlags(fs *flag.FlagSet) (envPath *string, fdsPath *string, protoDB *bool) {
 	envPath = fs.String("env", "", "Path to environment JSON file or inline JSON string (alias: -environment)")
 	fs.StringVar(envPath, "environment", "", "Alias for -env")
 
 	fdsPath = fs.String("fds", "", "Path to binary FileDescriptorSet file (alias: -file_descriptor_set, -file_descriptors)")
 	fs.StringVar(fdsPath, "file_descriptor_set", "", "Alias for -fds")
 	fs.StringVar(fdsPath, "file_descriptors", "", "Alias for -fds")
-	return envPath, fdsPath
+
+	protoDB = fs.Bool("proto_db", false, "Extend FileDescriptorSet with types resolved from the proto database")
+	return envPath, fdsPath, protoDB
 }
 
 func loadContentOrStdin(val string, stdin io.Reader) (string, error) {
@@ -113,40 +115,44 @@ func loadContentOrStdin(val string, stdin io.Reader) (string, error) {
 // command flags. When requireEnv is false, a missing environment yields a nil
 // config, which results in a standard CEL environment suitable for standalone
 // expressions.
-func loadEnvAndOpts(envFlag, fdsFlag string, stdin io.Reader, requireEnv bool) (*tools.Config, []cel.EnvOption, error) {
+func loadEnvAndOpts(envFlag, fdsFlag string, protoDBFlag bool, stdin io.Reader, requireEnv bool) (*tools.Config, []cel.EnvOption, []string, error) {
 	envContent, err := loadContentOrStdin(envFlag, stdin)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if envContent == "" && requireEnv {
-		return nil, nil, errors.New("environment configuration is required (use -env <path|json>)")
+		return nil, nil, nil, errors.New("environment configuration is required (use -env <path|json>)")
 	}
 
 	cfg, err := mcp.LoadEnvConfig(envContent)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to load environment configuration: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to load environment configuration: %w", err)
 	}
 
 	var opts []cel.EnvOption
-	if fdsFlag != "" {
-		fdOpt, err := mcp.LoadFileDescriptorSet(fdsFlag)
+	var warnings []string
+	if fdsFlag != "" || protoDBFlag {
+		opt, warns, err := mcp.BuildDescriptorEnvOption(fdsFlag, cfg, protoDBFlag)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed loading file descriptor set: %w", err)
+			return nil, nil, nil, fmt.Errorf("failed loading file descriptor set: %w", err)
 		}
-		opts = append(opts, fdOpt)
+		if opt != nil {
+			opts = append(opts, opt)
+		}
+		warnings = warns
 	}
 
-	return cfg, opts, nil
+	return cfg, opts, warnings, nil
 }
 
 func runCompile(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
 	fs := flag.NewFlagSet("compile", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	envFlag, fdsFlag := parseCommonEnvFlags(fs)
+	envFlag, fdsFlag, protoDBFlag := parseCommonEnvFlags(fs)
 	exprFlag := fs.String("expr", "", "CEL expression string")
 
 	fs.Usage = func() {
-		fmt.Fprintln(stderr, `Usage: cel-expr compile [-env <path|json>] [-fds <path>] [-expr <expr>] [expression]
+		fmt.Fprintln(stderr, `Usage: cel-expr compile [-env <path|json>] [-fds <path>] [-proto_db] [-expr <expr>] [expression]
 
 Alias for compile-only validation: supports all environment, descriptor, and expression flags
 that 'cel-expr eval' supports, without test cases or bindings. Outputs inputSchema and outputSchema.
@@ -170,14 +176,17 @@ Flags:`)
 		return errors.New("expression is required (use -expr <expr> or pass as argument)")
 	}
 
-	cfg, opts, err := loadEnvAndOpts(*envFlag, *fdsFlag, stdin, false)
+	cfg, opts, warnings, err := loadEnvAndOpts(*envFlag, *fdsFlag, *protoDBFlag, stdin, false)
 	if err != nil {
-		return err
+		return tools.AugmentErrorWithWarnings(err, warnings)
+	}
+	for _, w := range warnings {
+		fmt.Fprintf(stderr, "warning: %s\n", w)
 	}
 
 	res, err := tools.CompileCEL(expr, cfg, opts...)
 	if err != nil {
-		return fmt.Errorf("compilation failed: %w", err)
+		return tools.AugmentErrorWithWarnings(fmt.Errorf("compilation failed: %w", err), warnings)
 	}
 
 	outBytes, err := json.MarshalIndent(res, "", "  ")
@@ -192,7 +201,7 @@ Flags:`)
 func runEval(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
 	fs := flag.NewFlagSet("eval", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	envFlag, fdsFlag := parseCommonEnvFlags(fs)
+	envFlag, fdsFlag, protoDBFlag := parseCommonEnvFlags(fs)
 	exprFlag := fs.String("expr", "", "CEL expression string")
 	testsFlag := fs.String("tests", "", "Path to test cases JSON file or inline JSON array: '[{\"testCase\": \"...\", \"bindings\": {...}, \"expected\": ...}]'")
 	fs.StringVar(testsFlag, "test_cases", "", "Alias for -tests")
@@ -246,6 +255,9 @@ Flags:`)
 		}
 		if *fdsFlag != "" {
 			conformanceArgs = append(conformanceArgs, "-fds", *fdsFlag)
+		}
+		if *protoDBFlag {
+			conformanceArgs = append(conformanceArgs, "-proto_db")
 		}
 		if expr != "" {
 			conformanceArgs = append(conformanceArgs, "-expr", expr)
@@ -302,14 +314,17 @@ Flags:`)
 		})
 	}
 
-	cfg, opts, err := loadEnvAndOpts(*envFlag, *fdsFlag, stdin, false)
+	cfg, opts, warnings, err := loadEnvAndOpts(*envFlag, *fdsFlag, *protoDBFlag, stdin, false)
 	if err != nil {
-		return err
+		return tools.AugmentErrorWithWarnings(err, warnings)
+	}
+	for _, w := range warnings {
+		fmt.Fprintf(stderr, "warning: %s\n", w)
 	}
 
 	res, err := tools.EvaluateCEL(expr, cfg, testCases, opts...)
 	if err != nil {
-		return fmt.Errorf("evaluation failed: %w", err)
+		return tools.AugmentErrorWithWarnings(fmt.Errorf("evaluation failed: %w", err), warnings)
 	}
 
 	hasExplicitTests := (*testsFlag != "") || (*bindingsFlag != "") || (*expectedFlag != "")
@@ -344,7 +359,7 @@ Flags:`)
 func runConformance(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
 	fs := flag.NewFlagSet("conformance", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	envFlag, fdsFlag := parseCommonEnvFlags(fs)
+	envFlag, fdsFlag, protoDBFlag := parseCommonEnvFlags(fs)
 	testsFlag := fs.String("tests", "", "Path to conformance textproto file or inline textproto content")
 	filterFlag := fs.String("filter", "", "Optional substring filter for test names")
 	skipFlag := fs.String("skip", "", "Comma-separated test prefixes to skip")
@@ -378,11 +393,15 @@ func runConformance(args []string, stdout, stderr io.Writer, stdin io.Reader) er
 
 	var cfg *tools.Config
 	var opts []cel.EnvOption
-	if *envFlag != "" || *fdsFlag != "" {
+	var warnings []string
+	if *envFlag != "" || *fdsFlag != "" || *protoDBFlag {
 		var err error
-		cfg, opts, err = loadEnvAndOpts(*envFlag, *fdsFlag, stdin, false)
+		cfg, opts, warnings, err = loadEnvAndOpts(*envFlag, *fdsFlag, *protoDBFlag, stdin, false)
 		if err != nil {
-			return err
+			return tools.AugmentErrorWithWarnings(err, warnings)
+		}
+		for _, w := range warnings {
+			fmt.Fprintf(stderr, "warning: %s\n", w)
 		}
 	}
 
@@ -404,7 +423,7 @@ func runConformance(args []string, stdout, stderr io.Writer, stdin io.Reader) er
 		FallbackExpr: *exprFlag,
 	}, opts...)
 	if err != nil {
-		return fmt.Errorf("conformance evaluation failed: %w", err)
+		return tools.AugmentErrorWithWarnings(fmt.Errorf("conformance evaluation failed: %w", err), warnings)
 	}
 
 	outBytes, err := json.MarshalIndent(res, "", "  ")
@@ -424,7 +443,7 @@ func runConformance(args []string, stdout, stderr io.Writer, stdin io.Reader) er
 func runEnv(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
 	fs := flag.NewFlagSet("env", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	envFlag, fdsFlag := parseCommonEnvFlags(fs)
+	envFlag, fdsFlag, protoDBFlag := parseCommonEnvFlags(fs)
 
 	fs.Usage = func() {
 		fmt.Fprintln(stderr, "Usage: cel-expr env -env <path|json> [validate]")
@@ -439,14 +458,17 @@ func runEnv(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
 		return err
 	}
 
-	cfg, opts, err := loadEnvAndOpts(*envFlag, *fdsFlag, stdin, true)
+	cfg, opts, warnings, err := loadEnvAndOpts(*envFlag, *fdsFlag, *protoDBFlag, stdin, true)
 	if err != nil {
-		return err
+		return tools.AugmentErrorWithWarnings(err, warnings)
+	}
+	for _, w := range warnings {
+		fmt.Fprintf(stderr, "warning: %s\n", w)
 	}
 
 	_, err = tools.EnvFromConfig(cfg, opts...)
 	if err != nil {
-		return fmt.Errorf("environment validation failed: %w", err)
+		return tools.AugmentErrorWithWarnings(fmt.Errorf("environment validation failed: %w", err), warnings)
 	}
 
 	summary := map[string]any{
@@ -470,7 +492,7 @@ func runEnv(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
 func runPrompt(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
 	fs := flag.NewFlagSet("prompt", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	envFlag, fdsFlag := parseCommonEnvFlags(fs)
+	envFlag, fdsFlag, protoDBFlag := parseCommonEnvFlags(fs)
 	promptFlag := fs.String("prompt", "", "User requirement/prompt to generate CEL authoring prompt for")
 	fs.StringVar(promptFlag, "user_prompt", "", "Alias for -prompt")
 
@@ -495,14 +517,17 @@ func runPrompt(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
 		return errors.New("prompt requirement is required (use -prompt <text> or pass as arguments)")
 	}
 
-	cfg, opts, err := loadEnvAndOpts(*envFlag, *fdsFlag, stdin, false)
+	cfg, opts, warnings, err := loadEnvAndOpts(*envFlag, *fdsFlag, *protoDBFlag, stdin, false)
 	if err != nil {
-		return err
+		return tools.AugmentErrorWithWarnings(err, warnings)
+	}
+	for _, w := range warnings {
+		fmt.Fprintf(stderr, "warning: %s\n", w)
 	}
 
 	res, err := tools.GeneratePrompt(cfg, userPrompt, opts...)
 	if err != nil {
-		return fmt.Errorf("prompt generation failed: %w", err)
+		return tools.AugmentErrorWithWarnings(fmt.Errorf("prompt generation failed: %w", err), warnings)
 	}
 
 	fmt.Fprintln(stdout, res)
@@ -512,10 +537,10 @@ func runPrompt(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
 func runMCP(args []string, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("mcp", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	envFlag, fdsFlag := parseCommonEnvFlags(fs)
+	envFlag, fdsFlag, protoDBFlag := parseCommonEnvFlags(fs)
 
 	fs.Usage = func() {
-		fmt.Fprintln(stderr, "Usage: cel-expr mcp [-env <path|json>] [-fds <path>]")
+		fmt.Fprintln(stderr, "Usage: cel-expr mcp [-env <path|json>] [-fds <path>] [-proto_db]")
 		fmt.Fprintln(stderr, "\nFlags:")
 		fs.PrintDefaults()
 	}
@@ -527,7 +552,7 @@ func runMCP(args []string, stdout, stderr io.Writer) error {
 		return err
 	}
 
-	s, err := mcp.SetupServer(*fdsFlag, *envFlag)
+	s, err := mcp.SetupServer(*fdsFlag, *envFlag, *protoDBFlag)
 	if err != nil {
 		return fmt.Errorf("setup server error: %w", err)
 	}

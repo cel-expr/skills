@@ -16,8 +16,10 @@ package mcp
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	testpb "github.com/cel-expr/skills/internal/proto"
@@ -536,7 +538,7 @@ func TestSetupServer(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s, err := SetupServer(tt.fdsPath, tt.envPath)
+			s, err := SetupServer(tt.fdsPath, tt.envPath, false)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SetupServer() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -569,7 +571,7 @@ func TestSetupServer_WithProtobufTypes(t *testing.T) {
 		t.Fatalf("failed writing temp pb env file: %v", err)
 	}
 
-	s, err := SetupServer(validFdsPath, validPbEnvPath)
+	s, err := SetupServer(validFdsPath, validPbEnvPath, false)
 	if err != nil || s == nil {
 		t.Fatalf("SetupServer() failed with valid FDS and env: server=%v, err=%v", s, err)
 	}
@@ -790,5 +792,252 @@ func TestStdLibSubsettingTools(t *testing.T) {
 		UserPrompt: "check if foo starts with a",
 	}); err != nil {
 		t.Fatalf("handleGeneratePrompt with stdlib subset failed: %v", err)
+	}
+}
+
+func TestBuildDescriptorEnvOption(t *testing.T) {
+	// useProtoDB false, no fds
+	opt, warnings, err := BuildDescriptorEnvOption("", nil, false)
+	if err != nil || opt != nil || len(warnings) != 0 {
+		t.Fatalf("expected (nil, nil, nil), got (%v, %v, %v)", opt, warnings, err)
+	}
+
+	// useProtoDB true with proto variable
+	cfg := &tools.Config{
+		Variables: []*tools.Variable{
+			{Name: "msg", Type: "cel.skills.internal.proto.TestMessage"},
+		},
+	}
+	opt, warnings, err = BuildDescriptorEnvOption("", cfg, true)
+	if err != nil {
+		t.Fatalf("BuildDescriptorEnvOption failed: %v", err)
+	}
+	if opt == nil {
+		t.Fatal("expected non-nil EnvOption")
+	}
+	if len(warnings) != 0 {
+		t.Errorf("unexpected warnings: %v", warnings)
+	}
+
+	// useProtoDB true with unknown type produces warnings
+	badCfg := &tools.Config{
+		Variables: []*tools.Variable{
+			{Name: "bad", Type: "unknown.Type"},
+		},
+	}
+	_, warnings, err = BuildDescriptorEnvOption("", badCfg, true)
+	if err != nil {
+		t.Fatalf("BuildDescriptorEnvOption with unknown type failed: %v", err)
+	}
+	if len(warnings) == 0 {
+		t.Error("expected warnings for unknown type, got none")
+	}
+}
+
+func TestSetupServer_UseProtoDB(t *testing.T) {
+	tmpDir := t.TempDir()
+	pbEnvPath := filepath.Join(tmpDir, "pb_env.json")
+	if err := os.WriteFile(pbEnvPath, []byte(`{"variables":[{"name":"msg","type":"cel.skills.internal.proto.TestMessage"}]}`), 0644); err != nil {
+		t.Fatalf("failed writing temp pb env file: %v", err)
+	}
+
+	// With useProtoDB = false and no fdsPath, compilation of msg.single_int32 should fail
+	sWithoutDB, err := SetupServer("", pbEnvPath, false)
+	if err != nil {
+		t.Fatalf("SetupServer(useProtoDB=false) failed: %v", err)
+	}
+	ctx := context.Background()
+	t1, t2 := mcp.NewInMemoryTransports()
+	if _, err := sWithoutDB.Connect(ctx, t1, nil); err != nil {
+		t.Fatalf("Connect failed: %v", err)
+	}
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "1.0.0"}, nil)
+	session, err := client.Connect(ctx, t2, nil)
+	if err != nil {
+		t.Fatalf("client.Connect failed: %v", err)
+	}
+	res, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "cel_compile",
+		Arguments: map[string]any{"expr": "msg.single_int32 == 42"},
+	})
+	if err != nil {
+		t.Fatalf("CallTool failed: %v", err)
+	}
+	if !res.IsError {
+		t.Error("expected compilation failure without protoDB or FDS, but succeeded")
+	}
+	session.Close()
+
+	// With useProtoDB = true and no fdsPath, compilation and evaluation should succeed
+	sWithDB, err := SetupServer("", pbEnvPath, true)
+	if err != nil {
+		t.Fatalf("SetupServer(useProtoDB=true) failed: %v", err)
+	}
+	t3, t4 := mcp.NewInMemoryTransports()
+	if _, err := sWithDB.Connect(ctx, t3, nil); err != nil {
+		t.Fatalf("Connect failed: %v", err)
+	}
+	client2 := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "1.0.0"}, nil)
+	session2, err := client2.Connect(ctx, t4, nil)
+	if err != nil {
+		t.Fatalf("client2.Connect failed: %v", err)
+	}
+	defer session2.Close()
+
+	res2, err := session2.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "cel_compile",
+		Arguments: map[string]any{"expr": "msg.single_int32 == 42 && msg.single_nested_message.bb == 100"},
+	})
+	if err != nil {
+		t.Fatalf("CallTool cel_compile failed: %v", err)
+	}
+	if res2.IsError {
+		t.Errorf("cel_compile with protoDB failed: %v", res2.Content)
+	}
+
+	evalRes, err := session2.CallTool(ctx, &mcp.CallToolParams{
+		Name: "cel_evaluate",
+		Arguments: map[string]any{
+			"expr": "msg.single_int32 == 42 && msg.single_nested_message.bb == 100",
+			"testCases": []any{
+				map[string]any{
+					"testCase": "check proto message",
+					"bindings": map[string]any{
+						"msg": map[string]any{
+							"singleInt32": 42,
+							"singleNestedMessage": map[string]any{
+								"bb": 100,
+							},
+						},
+					},
+					"expected": true,
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CallTool cel_evaluate failed: %v", err)
+	}
+	if evalRes.IsError {
+		t.Errorf("cel_evaluate with protoDB failed: %v", evalRes.Content)
+	}
+}
+
+func TestDynamicEnv_UseProtoDB(t *testing.T) {
+	s := NewServerWithOptions(nil, nil, true)
+	ctx := context.Background()
+	t1, t2 := mcp.NewInMemoryTransports()
+	if _, err := s.Connect(ctx, t1, nil); err != nil {
+		t.Fatalf("Connect failed: %v", err)
+	}
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "1.0.0"}, nil)
+	session, err := client.Connect(ctx, t2, nil)
+	if err != nil {
+		t.Fatalf("client.Connect failed: %v", err)
+	}
+	defer session.Close()
+
+	envConfig := map[string]any{
+		"variables": []any{
+			map[string]any{"name": "msg", "type": "cel.skills.internal.proto.TestMessage"},
+		},
+	}
+
+	// 1. cel_create_environment
+	createRes, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "cel_create_environment",
+		Arguments: map[string]any{
+			"envConfig": envConfig,
+		},
+	})
+	if err != nil {
+		t.Fatalf("CallTool cel_create_environment failed: %v", err)
+	}
+	if createRes.IsError {
+		t.Errorf("cel_create_environment failed: %v", createRes.Content)
+	}
+
+	// 2. cel_compile
+	compileRes, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "cel_compile",
+		Arguments: map[string]any{
+			"envConfig": envConfig,
+			"expr":      "msg.single_int32 == 42",
+		},
+	})
+	if err != nil {
+		t.Fatalf("CallTool cel_compile failed: %v", err)
+	}
+	if compileRes.IsError {
+		t.Errorf("cel_compile failed: %v", compileRes.Content)
+	}
+
+	// 3. cel_evaluate
+	evalRes, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "cel_evaluate",
+		Arguments: map[string]any{
+			"envConfig": envConfig,
+			"expr":      "msg.single_int32 == 42",
+			"testCases": []any{
+				map[string]any{
+					"testCase": "check msg",
+					"bindings": map[string]any{"msg": map[string]any{"singleInt32": 42}},
+					"expected": true,
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CallTool cel_evaluate failed: %v", err)
+	}
+	if evalRes.IsError {
+		t.Errorf("cel_evaluate failed: %v", evalRes.Content)
+	}
+
+	// 4. cel_generate_prompt
+	promptRes, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "cel_generate_prompt",
+		Arguments: map[string]any{
+			"envConfig":  envConfig,
+			"userPrompt": "check msg int32",
+		},
+	})
+	if err != nil {
+		t.Fatalf("CallTool cel_generate_prompt failed: %v", err)
+	}
+	if promptRes.IsError {
+		t.Errorf("cel_generate_prompt failed: %v", promptRes.Content)
+	}
+
+	// 5. Unknown type error augmentation
+	badEnvConfig := map[string]any{
+		"variables": []any{
+			map[string]any{"name": "bad", "type": "com.example.NonExistent"},
+		},
+	}
+	badCompileRes, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "cel_compile",
+		Arguments: map[string]any{
+			"envConfig": badEnvConfig,
+			"expr":      "bad.foo == 1",
+		},
+	})
+	if err != nil {
+		t.Fatalf("CallTool bad compile failed: %v", err)
+	}
+	if !badCompileRes.IsError {
+		t.Error("expected error for bad compile, got success")
+	} else {
+		var text string
+		if len(badCompileRes.Content) > 0 {
+			if tc, ok := badCompileRes.Content[0].(*mcp.TextContent); ok {
+				text = tc.Text
+			} else {
+				text = fmt.Sprintf("%v", badCompileRes.Content[0])
+			}
+		}
+		if !strings.Contains(text, "proto_db warnings:") {
+			t.Errorf("expected augmented warnings in error, got: %s", text)
+		}
 	}
 }
