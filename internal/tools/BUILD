@@ -2,7 +2,7 @@ load("@rules_go//go:def.bzl", "go_test")
 load("@rules_go//go:def.bzl", "go_library")
 
 package(
-            default_visibility = ["//visibility:public"],
+    default_visibility = ["//visibility:public"],
 )
 
 go_library(
@@ -16,6 +16,7 @@ go_library(
         "evaluate.go",
         "input_schema.go",
         "prompt.go",
+        "protodb.go",
     ],
     deps = [
         "@dev_cel_cel_go//cel",
@@ -33,6 +34,10 @@ go_library(
         "@org_golang_google_protobuf//encoding/protojson",
         "@org_golang_google_protobuf//encoding/prototext",
         "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//reflect/protodesc",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//reflect/protoregistry",
+        "@org_golang_google_protobuf//types/descriptorpb",
     ],
 )
 
@@ -46,6 +51,7 @@ go_test(
         "evaluate_test.go",
         "input_schema_test.go",
         "prompt_test.go",
+        "protodb_test.go",
     ],
     data = glob(["testdata/**"]),
     embed = [":tools"],
@@ -59,8 +65,8 @@ go_test(
         "@dev_cel_expr//:expr",
         "@dev_cel_expr//conformance/test:go_default_library",
         "@org_golang_google_protobuf//proto",
-        "@org_golang_google_protobuf//types/known/anypb",
         "@org_golang_google_protobuf//reflect/protodesc",
         "@org_golang_google_protobuf//types/descriptorpb",
+        "@org_golang_google_protobuf//types/known/anypb",
     ],
 )

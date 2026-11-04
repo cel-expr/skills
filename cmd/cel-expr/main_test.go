@@ -568,3 +568,70 @@ section {
 	}
 }
 
+func TestCLI_ProtoDB(t *testing.T) {
+	pbEnv := `{"variables":[{"name":"msg","type":"cel.skills.internal.proto.TestMessage"}]}`
+
+	// 1. Without -proto_db, compile fails
+	var stdout, stderr bytes.Buffer
+	err := run([]string{"compile", "-env", pbEnv, "-expr", "msg.single_int32 == 42"}, &stdout, &stderr, nil)
+	if err == nil {
+		t.Error("expected compile to fail without -proto_db or -fds, but succeeded")
+	}
+
+	// 2. With -proto_db, compile succeeds
+	stdout.Reset()
+	stderr.Reset()
+	err = run([]string{"compile", "-env", pbEnv, "-proto_db", "-expr", "msg.single_int32 == 42"}, &stdout, &stderr, nil)
+	if err != nil {
+		t.Fatalf("run(compile with -proto_db) failed: %v (stderr: %s)", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "inputSchema") {
+		t.Errorf("expected inputSchema in output, got: %s", stdout.String())
+	}
+
+	// 3. With unknown type, error is augmented with warnings
+	stdout.Reset()
+	stderr.Reset()
+	badEnv := `{"variables":[{"name":"bad","type":"com.example.NonExistent"}]}`
+	err = run([]string{"compile", "-env", badEnv, "-proto_db", "-expr", "bad.foo == 1"}, &stdout, &stderr, nil)
+	if err == nil {
+		t.Fatal("expected compile with unknown type to fail, got nil")
+	}
+	if !strings.Contains(err.Error(), "proto_db warnings:") && !strings.Contains(stderr.String(), "warning:") {
+		t.Errorf("expected error or stderr to contain proto_db warnings, got err=%v, stderr=%s", err, stderr.String())
+	}
+
+	// 5. Eval with -proto_db
+	stdout.Reset()
+	stderr.Reset()
+	bindings := `{"msg":{"singleInt32":42}}`
+	err = run([]string{"eval", "-env", pbEnv, "-proto_db", "-bindings", bindings, "-expected", "true", "msg.single_int32 == 42"}, &stdout, &stderr, nil)
+	if err != nil {
+		t.Fatalf("run(eval with -proto_db) failed: %v (stderr: %s)", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), `"status": "pass"`) {
+		t.Errorf("expected pass in eval output, got: %s", stdout.String())
+	}
+
+	// 6. Env validation with -proto_db
+	stdout.Reset()
+	stderr.Reset()
+	err = run([]string{"env", "-env", pbEnv, "-proto_db"}, &stdout, &stderr, nil)
+	if err != nil {
+		t.Fatalf("run(env with -proto_db) failed: %v", err)
+	}
+	if !strings.Contains(stdout.String(), `"valid": true`) {
+		t.Errorf("expected valid: true in env output, got: %s", stdout.String())
+	}
+
+	// 7. Env validation error augmented with warnings
+	stdout.Reset()
+	stderr.Reset()
+	err = run([]string{"env", "-env", badEnv, "-proto_db"}, &stdout, &stderr, nil)
+	if err == nil {
+		t.Fatal("expected env with unknown type to fail, got nil")
+	}
+	if !strings.Contains(err.Error(), "proto_db warnings:") && !strings.Contains(stderr.String(), "warning:") {
+		t.Errorf("expected error or stderr to contain proto_db warnings, got err=%v, stderr=%s", err, stderr.String())
+	}
+}

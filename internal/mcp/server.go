@@ -29,31 +29,33 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// SetupServer configures and initializes an MCP Server with the given file descriptor set and environment.
-func SetupServer(fdsPath, envPath string) (*mcp.Server, error) {
+// SetupServer configures and initializes an MCP Server with the given file descriptor set and
+// environment. When useProtoDB is true, the file descriptor set is extended with types resolved
+// from the proto database for each environment configuration.
+func SetupServer(fdsPath, envPath string, useProtoDB bool) (*mcp.Server, error) {
+	baseFDS, err := LoadFileDescriptorSetProto(fdsPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed loading file descriptor set %q: %w", fdsPath, err)
+	}
+
+	fixedEnv, err := LoadEnvConfig(envPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed loading environment configuration %q: %w", envPath, err)
+	}
+
 	var opts []cel.EnvOption
-	if fdsPath != "" {
-		fdOpt, err := LoadFileDescriptorSet(fdsPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed loading file descriptor set %q: %w", fdsPath, err)
-		}
-		opts = append(opts, fdOpt)
+	if !useProtoDB && baseFDS != nil {
+		opts = append(opts, cel.TypeDescs(baseFDS))
 	}
 
-	var fixedEnv *tools.Config
-	if envPath != "" {
-		var err error
-		fixedEnv, err = LoadEnvConfig(envPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed loading environment configuration %q: %w", envPath, err)
-		}
-	}
-
-	return NewServer(fixedEnv, opts...), nil
+	return NewServerWithOptions(fixedEnv, baseFDS, useProtoDB, opts...), nil
 }
 
-// LoadFileDescriptorSet reads a binary FileDescriptorSet from the filesystem.
-func LoadFileDescriptorSet(path string) (cel.EnvOption, error) {
+// LoadFileDescriptorSetProto reads a binary FileDescriptorSet proto from the filesystem.
+func LoadFileDescriptorSetProto(path string) (*descpb.FileDescriptorSet, error) {
+	if path == "" {
+		return nil, nil
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -62,7 +64,44 @@ func LoadFileDescriptorSet(path string) (cel.EnvOption, error) {
 	if err := proto.Unmarshal(data, &fds); err != nil {
 		return nil, err
 	}
-	return cel.TypeDescs(&fds), nil
+	return &fds, nil
+}
+
+// LoadFileDescriptorSet reads a binary FileDescriptorSet from the filesystem and returns a cel.EnvOption.
+func LoadFileDescriptorSet(path string) (cel.EnvOption, error) {
+	fds, err := LoadFileDescriptorSetProto(path)
+	if err != nil {
+		return nil, err
+	}
+	if fds == nil {
+		return nil, nil
+	}
+	return cel.TypeDescs(fds), nil
+}
+
+// BuildDescriptorEnvOption resolves file descriptor set options for the CEL environment,
+// optionally extending it from the descriptor DB.
+func BuildDescriptorEnvOption(fdsPath string, cfg *tools.Config, useProtoDB bool) (cel.EnvOption, []string, error) {
+	baseFDS, err := LoadFileDescriptorSetProto(fdsPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed loading file descriptor set %q: %w", fdsPath, err)
+	}
+
+	if !useProtoDB {
+		if baseFDS != nil && len(baseFDS.GetFile()) > 0 {
+			return cel.TypeDescs(baseFDS), nil, nil
+		}
+		return nil, nil, nil
+	}
+
+	extendedFDS, warnings, err := tools.ExtendFileDescriptorSet(baseFDS, cfg, nil)
+	if err != nil {
+		return nil, warnings, err
+	}
+	if extendedFDS != nil && len(extendedFDS.GetFile()) > 0 {
+		return cel.TypeDescs(extendedFDS), warnings, nil
+	}
+	return nil, warnings, nil
 }
 
 // LoadEnvConfig loads an environment Config from a file path or inline JSON string.
@@ -84,12 +123,19 @@ func LoadEnvConfig(envPathOrJSON string) (*tools.Config, error) {
 }
 
 type toolsHandler struct {
-	fixedEnv *tools.Config
-	opts     []cel.EnvOption
+	fixedEnv   *tools.Config
+	opts       []cel.EnvOption
+	baseFDS    *descpb.FileDescriptorSet
+	useProtoDB bool
 }
 
 // NewServer creates a new MCP Server configured for CEL tools.
 func NewServer(fixedEnv *tools.Config, opts ...cel.EnvOption) *mcp.Server {
+	return NewServerWithOptions(fixedEnv, nil, false, opts...)
+}
+
+// NewServerWithOptions creates a new MCP Server configured for CEL tools and proto DB resolution.
+func NewServerWithOptions(fixedEnv *tools.Config, baseFDS *descpb.FileDescriptorSet, useProtoDB bool, opts ...cel.EnvOption) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{
 		Name:    "cel-mcp",
 		Version: "1.0.0",
@@ -98,8 +144,10 @@ func NewServer(fixedEnv *tools.Config, opts ...cel.EnvOption) *mcp.Server {
 	})
 
 	h := &toolsHandler{
-		fixedEnv: fixedEnv,
-		opts:     opts,
+		fixedEnv:   fixedEnv,
+		opts:       opts,
+		baseFDS:    baseFDS,
+		useProtoDB: useProtoDB,
 	}
 
 	if fixedEnv != nil {
@@ -169,6 +217,15 @@ type EvaluateArgs struct {
 	TestCases []tools.TestCase `json:"testCases" jsonschema_description:"The test cases for evaluation."`
 }
 
+// EvaluateConformanceArgs is the arguments for the cel_evaluate_conformance tool.
+type EvaluateConformanceArgs struct {
+	Tests        string        `json:"tests" jsonschema_description:"Path to conformance textproto file or inline textproto content."`
+	Filter       string        `json:"filter,omitempty" jsonschema_description:"Optional substring filter for test names."`
+	SkipTests    []string      `json:"skipTests,omitempty" jsonschema_description:"Optional list of test name prefixes to skip."`
+	EnvConfig    *tools.Config `json:"envConfig,omitempty" jsonschema_description:"Optional JSON environment configuration."`
+	FallbackExpr string        `json:"fallbackExpr,omitempty" jsonschema_description:"Optional fallback CEL expression."`
+}
+
 // FixedEnvGeneratePromptArgs is the arguments for the cel_generate_prompt tool when a static environment is configured.
 type FixedEnvGeneratePromptArgs struct {
 	UserPrompt string `json:"userPrompt" jsonschema_description:"The user prompt to generate the CEL expression for."`
@@ -185,15 +242,6 @@ type FixedEnvEvaluateArgs struct {
 	TestCases []tools.TestCase `json:"testCases" jsonschema_description:"The test cases for evaluation."`
 }
 
-// EvaluateConformanceArgs is the arguments for the cel_evaluate_conformance tool.
-type EvaluateConformanceArgs struct {
-	Tests        string        `json:"tests" jsonschema_description:"Path to conformance textproto file or inline textproto content."`
-	Filter       string        `json:"filter,omitempty" jsonschema_description:"Optional substring filter for test names."`
-	SkipTests    []string      `json:"skipTests,omitempty" jsonschema_description:"Optional list of test name prefixes to skip."`
-	EnvConfig    *tools.Config `json:"envConfig,omitempty" jsonschema_description:"Optional JSON environment configuration."`
-	FallbackExpr string        `json:"fallbackExpr,omitempty" jsonschema_description:"Optional fallback CEL expression."`
-}
-
 // FixedEnvEvaluateConformanceArgs is the arguments for the cel_evaluate_conformance tool when a static environment is configured.
 type FixedEnvEvaluateConformanceArgs struct {
 	Tests        string   `json:"tests" jsonschema_description:"Path to conformance textproto file or inline textproto content."`
@@ -202,10 +250,30 @@ type FixedEnvEvaluateConformanceArgs struct {
 	FallbackExpr string   `json:"fallbackExpr,omitempty" jsonschema_description:"Optional fallback CEL expression."`
 }
 
-func (h *toolsHandler) handleCreateEnvConfig(ctx context.Context, request *mcp.CallToolRequest, args CreateEnvConfigArgs) (*mcp.CallToolResult, any, error) {
-	_, err := tools.EnvFromConfig(args.EnvConfig, h.opts...)
+func (h *toolsHandler) resolveEnvOpts(cfg *tools.Config) ([]cel.EnvOption, []string, error) {
+	var opts []cel.EnvOption
+	opts = append(opts, h.opts...)
+	if !h.useProtoDB {
+		return opts, nil, nil
+	}
+	extendedFDS, warnings, err := tools.ExtendFileDescriptorSet(h.baseFDS, cfg, nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, warnings, err
+	}
+	if extendedFDS != nil && len(extendedFDS.GetFile()) > 0 {
+		opts = append(opts, cel.TypeDescs(extendedFDS))
+	}
+	return opts, warnings, nil
+}
+
+func (h *toolsHandler) handleCreateEnvConfig(ctx context.Context, request *mcp.CallToolRequest, args CreateEnvConfigArgs) (*mcp.CallToolResult, any, error) {
+	opts, warnings, err := h.resolveEnvOpts(args.EnvConfig)
+	if err != nil {
+		return nil, nil, tools.AugmentErrorWithWarnings(err, warnings)
+	}
+	_, err = tools.EnvFromConfig(args.EnvConfig, opts...)
+	if err != nil {
+		return nil, nil, tools.AugmentErrorWithWarnings(err, warnings)
 	}
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{&mcp.TextContent{Text: "Environment created successfully"}},
@@ -229,25 +297,40 @@ func (h *toolsHandler) resolveEnvConfig(envConfig *tools.Config) *tools.Config {
 }
 
 func (h *toolsHandler) handleCompile(ctx context.Context, request *mcp.CallToolRequest, args CompileArgs) (*mcp.CallToolResult, any, error) {
-	res, err := tools.CompileCEL(args.Expr, h.resolveEnvConfig(args.EnvConfig), h.opts...)
+	cfg := h.resolveEnvConfig(args.EnvConfig)
+	opts, warnings, err := h.resolveEnvOpts(cfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, tools.AugmentErrorWithWarnings(err, warnings)
+	}
+	res, err := tools.CompileCEL(args.Expr, cfg, opts...)
+	if err != nil {
+		return nil, nil, tools.AugmentErrorWithWarnings(err, warnings)
 	}
 	return nil, res, nil
 }
 
 func (h *toolsHandler) handleEvaluate(ctx context.Context, request *mcp.CallToolRequest, args EvaluateArgs) (*mcp.CallToolResult, any, error) {
-	res, err := tools.EvaluateCEL(args.Expr, h.resolveEnvConfig(args.EnvConfig), args.TestCases, h.opts...)
+	cfg := h.resolveEnvConfig(args.EnvConfig)
+	opts, warnings, err := h.resolveEnvOpts(cfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, tools.AugmentErrorWithWarnings(err, warnings)
+	}
+	res, err := tools.EvaluateCEL(args.Expr, cfg, args.TestCases, opts...)
+	if err != nil {
+		return nil, nil, tools.AugmentErrorWithWarnings(err, warnings)
 	}
 	return nil, res, nil
 }
 
 func (h *toolsHandler) handleGeneratePrompt(ctx context.Context, request *mcp.CallToolRequest, args GeneratePromptArgs) (*mcp.CallToolResult, any, error) {
-	res, err := tools.GeneratePrompt(h.resolveEnvConfig(args.EnvConfig), args.UserPrompt, h.opts...)
+	cfg := h.resolveEnvConfig(args.EnvConfig)
+	opts, warnings, err := h.resolveEnvOpts(cfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, tools.AugmentErrorWithWarnings(err, warnings)
+	}
+	res, err := tools.GeneratePrompt(cfg, args.UserPrompt, opts...)
+	if err != nil {
+		return nil, nil, tools.AugmentErrorWithWarnings(err, warnings)
 	}
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{&mcp.TextContent{Text: res}},
@@ -278,15 +361,19 @@ func (h *toolsHandler) handleEvaluateConformance(ctx context.Context, request *m
 	if envConfig == nil {
 		envConfig = h.fixedEnv
 	}
+	opts, warnings, err := h.resolveEnvOpts(envConfig)
+	if err != nil {
+		return nil, nil, tools.AugmentErrorWithWarnings(err, warnings)
+	}
 	res, err := tools.EvaluateConformanceWithParams(tools.ConformanceParams{
 		Tests:        args.Tests,
 		Filter:       args.Filter,
 		SkipTests:    args.SkipTests,
 		EnvConfig:    envConfig,
 		FallbackExpr: args.FallbackExpr,
-	}, h.opts...)
+	}, opts...)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, tools.AugmentErrorWithWarnings(err, warnings)
 	}
 	return nil, res, nil
 }
@@ -299,4 +386,3 @@ func (h *toolsHandler) handleFixedEnvEvaluateConformance(ctx context.Context, re
 		FallbackExpr: args.FallbackExpr,
 	})
 }
-
