@@ -571,9 +571,9 @@ section {
 func TestCLI_ProtoDB(t *testing.T) {
 	pbEnv := `{"variables":[{"name":"msg","type":"cel.skills.internal.proto.TestMessage"}]}`
 
-	// 1. Without -proto_db, compile fails
+	// 1. With -proto_db disabled, compile fails
 	var stdout, stderr bytes.Buffer
-	err := run([]string{"compile", "-env", pbEnv, "-expr", "msg.single_int32 == 42"}, &stdout, &stderr, nil)
+	err := run([]string{"compile", "-env", pbEnv, "-proto_db=false", "-expr", "msg.single_int32 == 42"}, &stdout, &stderr, nil)
 	if err == nil {
 		t.Error("expected compile to fail without -proto_db or -fds, but succeeded")
 	}
