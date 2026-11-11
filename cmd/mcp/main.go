@@ -25,12 +25,16 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// protoDBDefault is the default value of the -proto_db flag. Builds may override it during
+// program initialization.
+var protoDBDefault = false
+
 func main() {
 	fileDescriptorSet := flag.String("file_descriptor_set", "", "Path to a binary FileDescriptorSet file containing protobuf definitions.")
 	flag.String("file_descriptors", "", "Alias for -file_descriptor_set: path to a binary FileDescriptorSet file.")
 	environmentFlag := flag.String("environment", "", "Path to a JSON file or JSON string containing the CEL environment configuration.")
 	flag.String("env", "", "Alias for -environment: path to a JSON file or JSON string containing the CEL environment configuration.")
-	protoDBFlag := flag.Bool("proto_db", false, "Extend FileDescriptorSet with types resolved from the proto database .")
+	protoDBFlag := flag.Bool("proto_db", protoDBDefault, "Extend FileDescriptorSet with types resolved from the proto database.")
 	flag.Parse()
 
 	fdsPath := *fileDescriptorSet

@@ -88,6 +88,10 @@ func run(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
 	}
 }
 
+// protoDBDefault is the default value of the -proto_db flag. Builds may override it during
+// program initialization.
+var protoDBDefault = false
+
 func parseCommonEnvFlags(fs *flag.FlagSet) (envPath *string, fdsPath *string, protoDB *bool) {
 	envPath = fs.String("env", "", "Path to environment JSON file or inline JSON string (alias: -environment)")
 	fs.StringVar(envPath, "environment", "", "Alias for -env")
@@ -96,7 +100,7 @@ func parseCommonEnvFlags(fs *flag.FlagSet) (envPath *string, fdsPath *string, pr
 	fs.StringVar(fdsPath, "file_descriptor_set", "", "Alias for -fds")
 	fs.StringVar(fdsPath, "file_descriptors", "", "Alias for -fds")
 
-	protoDB = fs.Bool("proto_db", false, "Extend FileDescriptorSet with types resolved from the proto database")
+	protoDB = fs.Bool("proto_db", protoDBDefault, "Extend FileDescriptorSet with types resolved from the proto database")
 	return envPath, fdsPath, protoDB
 }
 
