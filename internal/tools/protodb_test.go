@@ -276,3 +276,47 @@ func TestSetDefaultDescriptorDB(t *testing.T) {
 func protoStr(s string) *string {
 	return &s
 }
+
+func TestExtendFileDescriptorSet_ProtoTypes(t *testing.T) {
+	cfg := &Config{
+		ProtoTypes: []string{
+			"cel.skills.internal.proto.TestEnum",
+			"cel.skills.internal.proto.TestMessage.NestedEnum",
+		},
+		Variables: []*Variable{
+			{Name: "code", Type: "int"},
+		},
+	}
+
+	fds, warnings, err := ExtendFileDescriptorSet(nil, cfg, nil)
+	if err != nil {
+		t.Fatalf("ExtendFileDescriptorSet failed: %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("unexpected warnings: %v", warnings)
+	}
+	if len(fds.GetFile()) == 0 {
+		t.Fatal("expected test_schema.proto in extended FDS")
+	}
+
+	// Verify ProtoTypes does not add short-name aliases to ToCELConfig.
+	celCfg, err := cfg.ToCELConfig()
+	if err != nil {
+		t.Fatalf("ToCELConfig failed: %v", err)
+	}
+	if len(celCfg.Imports) != 0 {
+		t.Errorf("expected empty Imports in ToCELConfig, got %v", celCfg.Imports)
+	}
+
+	res, err := CompileCEL(
+		"code == cel.skills.internal.proto.TestEnum.TEST_ENUM_FIRST && code != cel.skills.internal.proto.TestMessage.NestedEnum.BAR",
+		cfg,
+		cel.TypeDescs(fds),
+	)
+	if err != nil {
+		t.Fatalf("CompileCEL with protoTypes FDS failed: %v", err)
+	}
+	if res == nil {
+		t.Fatal("expected non-nil CompileExprOutput")
+	}
+}
