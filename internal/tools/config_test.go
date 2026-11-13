@@ -722,3 +722,109 @@ func TestEnvFromConfig_MissingCustomTypeHint(t *testing.T) {
 		t.Errorf("expected FileDescriptorSet completeness hint when opts are provided, got: %v", err)
 	}
 }
+
+func TestConvertEnvYAMLToJSON(t *testing.T) {
+	yamlContent := `
+name: sample_yaml_env
+description: Sample YAML environment
+container: cel.skills.internal.proto
+imports:
+  - name: google.protobuf.Timestamp
+extensions:
+  - name: strings
+    version: latest
+  - name: optional
+variables:
+  - name: msg
+    type_name: cel.skills.internal.proto.TestMessage
+  - name: scores
+    type: map<string, int>
+functions:
+  - name: custom.check
+    overloads:
+      - id: custom_check_int_string_bool
+        args:
+          - int
+          - type_name: string
+        return: bool
+features:
+  - name: cel.feature.cross_type_numeric_comparisons
+    enabled: true
+limits:
+  - name: cel.limit.ExpressionCodePoints
+    value: 4096
+`
+	jsonBytes, err := ConvertEnvYAMLToJSON([]byte(yamlContent))
+	if err != nil {
+		t.Fatalf("ConvertEnvYAMLToJSON failed: %v", err)
+	}
+
+	// Round-trip converted JSON through ConfigFromJSON and ToCELConfig.
+	cfg, err := ConfigFromJSON(string(jsonBytes))
+	if err != nil {
+		t.Fatalf("ConfigFromJSON(converted) failed: %v", err)
+	}
+	if cfg.Name != "sample_yaml_env" || cfg.Container != "cel.skills.internal.proto" {
+		t.Errorf("unexpected metadata: name=%q container=%q", cfg.Name, cfg.Container)
+	}
+	if len(cfg.Variables) != 2 || cfg.Variables[0].Type != "cel.skills.internal.proto.TestMessage" || cfg.Variables[1].Type != "map<string, int>" {
+		t.Errorf("unexpected variables: %+v", cfg.Variables)
+	}
+	if len(cfg.Functions) != 1 || len(cfg.Functions[0].Overloads) != 1 {
+		t.Fatalf("unexpected functions: %+v", cfg.Functions)
+	}
+
+	celCfg, err := cfg.ToCELConfig()
+	if err != nil {
+		t.Fatalf("ToCELConfig failed: %v", err)
+	}
+	if len(celCfg.Limits) != 1 || celCfg.Limits[0].Value != 4096 {
+		t.Errorf("expected Limits preserved across YAML -> JSON -> ToCELConfig, got: %+v", celCfg.Limits)
+	}
+
+	fds, warnings, err := ExtendFileDescriptorSet(nil, cfg, nil)
+	if err != nil || len(warnings) != 0 {
+		t.Fatalf("ExtendFileDescriptorSet failed: warnings=%v, err=%v", warnings, err)
+	}
+	if _, err := EnvFromConfig(cfg, cel.TypeDescs(fds)); err != nil {
+		t.Fatalf("EnvFromConfig failed: %v", err)
+	}
+
+	// Context variable YAML.
+	ctxYAML := `
+name: ctx_env
+context_variable:
+  type_name: cel.skills.internal.proto.TestMessage
+`
+	ctxJSON, err := ConvertEnvYAMLToJSON([]byte(ctxYAML))
+	if err != nil {
+		t.Fatalf("ConvertEnvYAMLToJSON(ctxYAML) failed: %v", err)
+	}
+	ctxCfg, err := ConfigFromJSON(string(ctxJSON))
+	if err != nil {
+		t.Fatalf("ConfigFromJSON(ctxJSON) failed: %v", err)
+	}
+	if ctxCfg.ContextVariable == nil || ctxCfg.ContextVariable.Type != "cel.skills.internal.proto.TestMessage" {
+		t.Errorf("unexpected ContextVariable: %+v", ctxCfg.ContextVariable)
+	}
+
+	// Invalid YAML syntax fails immediately.
+	if _, err := ConvertEnvYAMLToJSON([]byte("variables: [unclosed")); err == nil {
+		t.Error("expected error for malformed YAML, got nil")
+	}
+
+	// Pin current cel-go validation error when overload args use `{type: int}` instead of `type_name:`.
+	cppStyleArgsYAML := `
+name: cpp_style
+functions:
+  - name: custom.fn
+    overloads:
+      - id: custom_fn_int
+        args:
+          - type: int
+        return: bool
+`
+	if _, err := ConvertEnvYAMLToJSON([]byte(cppStyleArgsYAML)); err == nil || !strings.Contains(err.Error(), "missing type name") {
+		t.Errorf("expected cel-go validation error mentioning missing type name, got: %v", err)
+	}
+}

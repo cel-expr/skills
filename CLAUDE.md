@@ -30,7 +30,8 @@ Common Expression Language (CEL) expressions.
 -   **Build unified CLI**: `go build ./cmd/cel-expr`
 -   **Build MCP server**: `go build ./cmd/mcp`
 -   **Run tests**: `go test ./...`
--   **Run unified CLI**: `go run ./cmd/cel-expr <compile|eval|env|prompt|mcp>`
+-   **Run unified CLI**:
+    `go run ./cmd/cel-expr <compile|eval|env|convert-env|prompt|mcp>`
 -   **Run MCP server**: `go run ./cmd/mcp`
 
 ### Bazel
@@ -61,6 +62,8 @@ The server accepts startup flags to tailor the tool experience:
 -   `-file_descriptor_set` (alias `-file_descriptors`): Path to a binary
     `FileDescriptorSet` file containing protobuf definitions referenced as types
     within an environment.
+-   `-proto_db`: Extends the `FileDescriptorSet` with protobuf types resolved
+    from the descriptor database.
 
 ## Available Skills
 
