@@ -31,6 +31,7 @@ type Config struct {
 	Description     string           `json:"description,omitempty"`
 	Container       string           `json:"container,omitempty"`
 	Imports         []*Import        `json:"imports,omitempty"`
+	ProtoTypes      []string         `json:"protoTypes,omitempty" jsonschema_description:"Fully-qualified protobuf message or enum names to load into the FileDescriptorSet without altering CEL container or import resolution."`
 	StdLib          *LibrarySubset   `json:"stdlib,omitempty"`
 	Extensions      []*Extension     `json:"extensions,omitempty"`
 	ContextVariable *ContextVariable `json:"contextVariable,omitempty"`
@@ -330,9 +331,9 @@ func EnvFromConfig(envConfig *Config, opts ...cel.EnvOption) (*cel.Env, error) {
 	if err != nil {
 		if strings.Contains(err.Error(), "undefined type name:") || strings.Contains(err.Error(), "invalid context proto type:") {
 			if len(opts) == 0 {
-				return nil, fmt.Errorf("%w (provide a binary FileDescriptorSet via -fds <path> if the environment refers to custom protobuf types)", err)
+				return nil, fmt.Errorf("%w (provide a binary FileDescriptorSet via -fds <path> or enable -proto_db if the environment refers to custom protobuf types)", err)
 			}
-			return nil, fmt.Errorf("%w (ensure all custom protobuf types referenced in the environment are included in the -fds FileDescriptorSet)", err)
+			return nil, fmt.Errorf("%w (ensure all custom protobuf types referenced in the environment are included in the -fds FileDescriptorSet or resolvable via -proto_db / protoTypes)", err)
 		}
 		return nil, err
 	}

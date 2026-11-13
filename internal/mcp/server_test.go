@@ -1040,4 +1040,112 @@ func TestDynamicEnv_UseProtoDB(t *testing.T) {
 			t.Errorf("expected augmented warnings in error, got: %s", text)
 		}
 	}
+
+	missingProtoRes, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "cel_compile",
+		Arguments: map[string]any{
+			"envConfig": map[string]any{
+				"variables": []any{map[string]any{"name": "code", "type": "int"}},
+			},
+			"expr": "code == cel.skills.internal.proto.TestEnum.TEST_ENUM_FIRST",
+		},
+	})
+	if err != nil {
+		t.Fatalf("CallTool missing proto compile failed: %v", err)
+	}
+	if !missingProtoRes.IsError {
+		t.Error("expected missing proto compile to fail without protoTypes")
+	}
+
+	exprOnlyRes, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "cel_evaluate",
+		Arguments: map[string]any{
+			"envConfig": map[string]any{
+				"protoTypes": []any{"cel.skills.internal.proto.TestEnum", "cel.skills.internal.proto.TestMessage"},
+				"variables":  []any{map[string]any{"name": "code", "type": "int"}},
+			},
+			"expr": "code == cel.skills.internal.proto.TestEnum.TEST_ENUM_FIRST && cel.skills.internal.proto.TestMessage{single_int32: 5}.single_int32 == 5",
+			"testCases": []any{
+				map[string]any{
+					"testCase": "enum and struct literal",
+					"bindings": map[string]any{"code": 1},
+					"expected": true,
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CallTool protoTypes eval failed: %v", err)
+	}
+	if exprOnlyRes.IsError {
+		t.Errorf("cel_evaluate with protoTypes failed: %v", exprOnlyRes.Content)
+	}
+}
+
+func TestServer_FixedEnvPolicy(t *testing.T) {
+	tmpDir := t.TempDir()
+	jsonPath := filepath.Join(tmpDir, "env.json")
+	jsonContent := `{"extensions":[{"name":"optional","version":"latest"}],"variables":[{"name":"msg","type":"cel.skills.internal.proto.TestMessage"}]}`
+	if err := os.WriteFile(jsonPath, []byte(jsonContent), 0644); err != nil {
+		t.Fatalf("failed writing json file: %v", err)
+	}
+
+	s, err := SetupServer("", jsonPath, true)
+	if err != nil || s == nil {
+		t.Fatalf("SetupServer with JSON env failed: server=%v, err=%v", s, err)
+	}
+
+	ctx := context.Background()
+	t1, t2 := mcp.NewInMemoryTransports()
+	if _, err := s.Connect(ctx, t1, nil); err != nil {
+		t.Fatalf("Connect failed: %v", err)
+	}
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "1.0.0"}, nil)
+	session, err := client.Connect(ctx, t2, nil)
+	if err != nil {
+		t.Fatalf("client.Connect failed: %v", err)
+	}
+	defer session.Close()
+
+	inlinePolicy := `name: mcp_policy
+rule:
+  match:
+    - condition: msg.?single_int32.orValue(0) == 42
+      output: '"matched"'
+    - output: '"default"'
+`
+	polCompRes, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "cel_compile",
+		Arguments: map[string]any{
+			"expr":   inlinePolicy,
+			"policy": true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("CallTool cel_compile(policy) failed: %v", err)
+	}
+	if polCompRes.IsError {
+		t.Errorf("cel_compile(policy) failed: %v", polCompRes.Content)
+	}
+
+	polEvalRes, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "cel_evaluate",
+		Arguments: map[string]any{
+			"expr":   inlinePolicy,
+			"policy": true,
+			"testCases": []any{
+				map[string]any{
+					"testCase": "hit",
+					"bindings": map[string]any{"msg": map[string]any{"singleInt32": 42}},
+					"expected": "matched",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CallTool cel_evaluate(policy) failed: %v", err)
+	}
+	if polEvalRes.IsError {
+		t.Errorf("cel_evaluate(policy) failed: %v", polEvalRes.Content)
+	}
 }

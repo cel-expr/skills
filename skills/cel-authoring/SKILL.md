@@ -49,11 +49,19 @@ cel-expr env -env <env.json>
 
 *   Namespaced variables with simple types improve correctness checks.
 *   Use namespacing for related concepts, e.g. `request.path`, `request.time`.
-*   Use protobuf object types for strongly typed structured data. When
-    referencing `.proto` message types, pass `-fds` inline using `proto-fds`:
+*   Use protobuf object types for strongly typed structured data. Declare
+    protobuf types with their **fully-qualified** package names (declare enum
+    variables as `int`) and pass `-proto_db` or `-fds`:
     ```bash
+    cel-expr env -env <env.json> -proto_db
+    # or with an explicit FileDescriptorSet from protoc:
     cel-expr env -env <env.json> -fds <(proto-fds -I <proto_dir> <schema.proto>)
     ```
+    When expressions reference protobuf enums or message literals not present in
+    `variables`, infer the fully-qualified type from the expression on
+    `undeclared reference` and add it to `"protoTypes"` in `<env.json>` (never
+    add `"imports"` solely to load descriptors). See
+    [protobuf_types.md](skills/cel-authoring/references/protobuf_types.md).
 *   Only use `map<string, dyn>` when the variable is a dynamic structure like JSON.
 *   Type names are formatted according to:
     [type_grammar_ebnf.txt](skills/cel-authoring/references/type_grammar_ebnf.txt).
@@ -120,10 +128,29 @@ Generate additional test cases until you achieve >95% node and branch coverage.
 
 Report the test results with node and branch coverage percentages.
 
-## Complete Example
+## Authoring CEL Policies (`.celpolicy`)
 
-The following is a complete example of the artifacts generated from the prompt:
-"Validate the request is authenticated by checking for a bearer token"
+When authoring or validating multi-rule CEL policies (`.celpolicy` / YAML policy
+documents with `rule.variables` and ordered first-match `rule.match` blocks),
+pass `-policy` to `cel-expr compile` or `cel-expr eval` (or `"policy": true` in
+MCP `cel_compile` / `cel_evaluate`). The expression input may be either a file
+path or inline policy YAML:
+
+```bash
+cel-expr compile -env <env.json> -policy <policy.celpolicy>
+cel-expr eval -env <env.json> -policy -tests <tests.json> <policy.celpolicy>
+```
+
+*   `rule.variables` entries are scoped in declaration order and referenced as
+    `variables.<name>`.
+*   `rule.match` branches evaluate in order (`first-match`). When a policy omits
+    an unconditional fallback `output`, the composed policy returns an optional
+    value (`null` in `-tests` `expected` when no branch matches).
+
+## Complete Examples
+
+Expression example ("Validate the request is authenticated by checking for a
+bearer token"):
 
 *   Environment:
     [network_env.json](skills/cel-authoring/examples/network_env.json)
@@ -131,3 +158,12 @@ The following is a complete example of the artifacts generated from the prompt:
     [network_headers.cel](skills/cel-authoring/examples/network_headers.cel)
 *   Tests:
     [network_headers_tests.json](skills/cel-authoring/examples/network_headers_tests.json)
+
+Policy example (`.celpolicy`):
+
+*   Environment:
+    [access_policy_env.json](skills/cel-authoring/examples/access_policy_env.json)
+*   Policy:
+    [access_policy.celpolicy](skills/cel-authoring/examples/access_policy.celpolicy)
+*   Tests:
+    [access_policy_tests.json](skills/cel-authoring/examples/access_policy_tests.json)

@@ -153,12 +153,13 @@ func runCompile(args []string, stdout, stderr io.Writer, stdin io.Reader) error 
 	fs := flag.NewFlagSet("compile", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	envFlag, fdsFlag, protoDBFlag := parseCommonEnvFlags(fs)
-	exprFlag := fs.String("expr", "", "CEL expression string")
+	exprFlag := fs.String("expr", "", "CEL expression string (or policy file path / inline YAML when -policy is set)")
+	policyFlag := fs.Bool("policy", false, "Interpret expression as a .celpolicy YAML file path or inline YAML policy document")
 
 	fs.Usage = func() {
-		fmt.Fprintln(stderr, `Usage: cel-expr compile [-env <path|json>] [-fds <path>] [-proto_db] [-expr <expr>] [expression]
+		fmt.Fprintln(stderr, `Usage: cel-expr compile [-env <path|json>] [-fds <path>] [-proto_db] [-policy] [-expr <expr|policy>] [expression|policy]
 
-Alias for compile-only validation: supports all environment, descriptor, and expression flags
+Alias for compile-only validation: supports all environment, descriptor, policy, and expression flags
 that 'cel-expr eval' supports, without test cases or bindings. Outputs inputSchema and outputSchema.
 
 Flags:`)
@@ -188,9 +189,15 @@ Flags:`)
 		fmt.Fprintf(stderr, "warning: %s\n", w)
 	}
 
-	res, err := tools.CompileCEL(expr, cfg, opts...)
+	res, err := tools.CompileCELWithOptions(expr, cfg, tools.CompileOptions{
+		EnvOpts: opts,
+		Policy:  *policyFlag,
+	})
 	if err != nil {
 		return tools.AugmentErrorWithWarnings(fmt.Errorf("compilation failed: %w", err), warnings)
+	}
+	for _, w := range res.Warnings {
+		fmt.Fprintf(stderr, "warning: %s\n", w)
 	}
 
 	outBytes, err := json.MarshalIndent(res, "", "  ")
@@ -206,7 +213,8 @@ func runEval(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
 	fs := flag.NewFlagSet("eval", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	envFlag, fdsFlag, protoDBFlag := parseCommonEnvFlags(fs)
-	exprFlag := fs.String("expr", "", "CEL expression string")
+	exprFlag := fs.String("expr", "", "CEL expression string (or policy file path / inline YAML when -policy is set)")
+	policyFlag := fs.Bool("policy", false, "Interpret expression as a .celpolicy YAML file path or inline YAML policy document")
 	testsFlag := fs.String("tests", "", "Path to test cases JSON file or inline JSON array: '[{\"testCase\": \"...\", \"bindings\": {...}, \"expected\": ...}]'")
 	fs.StringVar(testsFlag, "test_cases", "", "Alias for -tests")
 	bindingsFlag := fs.String("bindings", "", "Single test case variable bindings JSON file or inline JSON object: '{\"var\": \"val\"}'")
@@ -214,7 +222,7 @@ func runEval(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
 	conformanceFlag := fs.String("conformance", "", "Path to conformance textproto file or inline textproto content")
 
 	fs.Usage = func() {
-		fmt.Fprintln(stderr, `Usage: cel-expr eval [-env <path|json>] [-fds <path>] [-tests <path|json>] [-bindings <path|json>] [-expected <json|string>] [-conformance <path|textproto>] [-expr <expr>] [expression]
+		fmt.Fprintln(stderr, `Usage: cel-expr eval [-env <path|json>] [-fds <path>] [-proto_db] [-policy] [-tests <path|json>] [-bindings <path|json>] [-expected <json|string>] [-conformance <path|textproto>] [-expr <expr|policy>] [expression|policy]
 
 Compiles and evaluates a CEL expression against an environment configuration:
   1. Compiles and type-checks the expression (reporting inputSchema and outputSchema).
@@ -326,9 +334,15 @@ Flags:`)
 		fmt.Fprintf(stderr, "warning: %s\n", w)
 	}
 
-	res, err := tools.EvaluateCEL(expr, cfg, testCases, opts...)
+	res, err := tools.EvaluateCELWithOptions(expr, cfg, testCases, tools.CompileOptions{
+		EnvOpts: opts,
+		Policy:  *policyFlag,
+	})
 	if err != nil {
 		return tools.AugmentErrorWithWarnings(fmt.Errorf("evaluation failed: %w", err), warnings)
+	}
+	for _, w := range res.Warnings {
+		fmt.Fprintf(stderr, "warning: %s\n", w)
 	}
 
 	hasExplicitTests := (*testsFlag != "") || (*bindingsFlag != "") || (*expectedFlag != "")

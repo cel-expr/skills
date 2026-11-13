@@ -634,4 +634,75 @@ func TestCLI_ProtoDB(t *testing.T) {
 	if !strings.Contains(err.Error(), "proto_db warnings:") && !strings.Contains(stderr.String(), "warning:") {
 		t.Errorf("expected error or stderr to contain proto_db warnings, got err=%v, stderr=%s", err, stderr.String())
 	}
+
+	// 8. Expression-only enum and message literal fail without protoTypes, and succeed once listed in protoTypes
+	stdout.Reset()
+	stderr.Reset()
+	intOnlyEnv := `{"variables":[{"name":"code","type":"int"}]}`
+	exprOnlyProto := "code == cel.skills.internal.proto.TestEnum.TEST_ENUM_FIRST && cel.skills.internal.proto.TestMessage{single_int32: 7}.single_int32 == 7"
+	err = run([]string{"compile", "-env", intOnlyEnv, "-proto_db", "-expr", exprOnlyProto}, &stdout, &stderr, nil)
+	if err == nil || !strings.Contains(err.Error(), "undeclared reference") {
+		t.Fatalf("expected expression-only proto without protoTypes to fail with undeclared reference, got: %v", err)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	protoTypesEnv := `{"protoTypes":["cel.skills.internal.proto.TestEnum","cel.skills.internal.proto.TestMessage"],"variables":[{"name":"code","type":"int"}]}`
+	err = run([]string{"eval", "-env", protoTypesEnv, "-proto_db", "-bindings", `{"code":1}`, "-expected", "true", exprOnlyProto}, &stdout, &stderr, nil)
+	if err != nil {
+		t.Fatalf("run(eval with protoTypes) failed: %v (stderr: %s)", err, stderr.String())
+	}
+	if strings.Contains(stdout.String(), "TEST_ENUM_FIRST") {
+		t.Errorf("enum constant leaked into inputSchema: %s", stdout.String())
+	}
+}
+
+func TestCLI_Policy(t *testing.T) {
+	tmpDir := t.TempDir()
+	envJSON := `{"protoTypes":["cel.skills.internal.proto.TestEnum"],"extensions":[{"name":"optional","version":"latest"}],"variables":[{"name":"role","type":"string"},{"name":"code","type":"int"}]}`
+	envPath := filepath.Join(tmpDir, "policy_env.json")
+	if err := os.WriteFile(envPath, []byte(envJSON), 0644); err != nil {
+		t.Fatalf("failed writing env json: %v", err)
+	}
+
+	policyYAML := `name: role_policy
+display_name: Role Policy
+rule:
+  variables:
+    - name: tier_match
+      expression: code == cel.skills.internal.proto.TestEnum.TEST_ENUM_FIRST
+  match:
+    - condition: role == "admin" || variables.tier_match
+      output: "true"
+    - output: "false"
+`
+	policyPath := filepath.Join(tmpDir, "role.celpolicy")
+	if err := os.WriteFile(policyPath, []byte(policyYAML), 0644); err != nil {
+		t.Fatalf("failed writing celpolicy: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	if err := run([]string{"compile", "-env", envPath, "-proto_db", "-policy", policyPath}, &stdout, &stderr, nil); err != nil {
+		t.Fatalf("run(compile -policy file) failed: %v (stderr: %s)", err, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), `ignoring unsupported policy tag "display_name"`) {
+		t.Errorf("expected display_name warning on stderr, got: %s", stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	testsJSON := `[{"testCase":"admin","bindings":{"role":"admin","code":0},"expected":true},{"testCase":"viewer","bindings":{"role":"viewer","code":2},"expected":false}]`
+	if err := run([]string{"eval", "-env", envPath, "-proto_db", "-policy", "-tests", testsJSON, policyPath}, &stdout, &stderr, nil); err != nil {
+		t.Fatalf("run(eval -policy file) failed: %v (stderr: %s)", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), `"status": "pass"`) {
+		t.Errorf("expected pass in eval -policy output, got: %s", stdout.String())
+	}
+
+	// Inline policy YAML via -expr
+	stdout.Reset()
+	stderr.Reset()
+	if err := run([]string{"eval", "-env", envPath, "-proto_db", "-policy", "-bindings", `{"role":"viewer","code":1}`, "-expected", "true", "-expr", policyYAML}, &stdout, &stderr, nil); err != nil {
+		t.Fatalf("run(eval -policy inline) failed: %v (stderr: %s)", err, stderr.String())
+	}
 }

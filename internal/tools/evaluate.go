@@ -24,6 +24,7 @@ import (
 	"cel.dev/cel-go/common/functions"
 	"cel.dev/cel-go/common/types"
 	"cel.dev/cel-go/common/types/ref"
+	celext "cel.dev/cel-go/ext"
 	protojson "google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
@@ -57,6 +58,7 @@ type EvaluateExprOutput struct {
 	TestResults      []TestResult `json:"testResults,omitempty"`
 	SkippedTestCases []string     `json:"skippedTestCases,omitempty"`
 	Coverage         string       `json:"coverage,omitempty"`
+	Warnings         []string     `json:"warnings,omitempty"`
 }
 
 // TestCase is a test case for evaluation.
@@ -126,14 +128,34 @@ func unimplementedFunctionBindings(env *cel.Env, envConfig *Config) []*functions
 
 // EvaluateCEL evaluates a compiled CEL expression against provided variable bindings.
 func EvaluateCEL(expr string, envConfig *Config, testCases []TestCase, opts ...cel.EnvOption) (*EvaluateExprOutput, error) {
-	env, err := EnvFromConfig(envConfig, opts...)
+	return EvaluateCELWithOptions(expr, envConfig, testCases, CompileOptions{EnvOpts: opts})
+}
+
+// EvaluateCELWithOptions evaluates a CEL expression or .celpolicy against provided variable
+// bindings with extended compilation options.
+func EvaluateCELWithOptions(expr string, envConfig *Config, testCases []TestCase, opts CompileOptions) (*EvaluateExprOutput, error) {
+	envOpts := opts.EnvOpts
+	if opts.Policy {
+		envOpts = append([]cel.EnvOption{celext.Bindings()}, envOpts...)
+	}
+	env, err := EnvFromConfig(envConfig, envOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed constructing env: %w", err)
 	}
 
-	ast, iss := env.Compile(expr)
-	if iss.Err() != nil {
-		return nil, fmt.Errorf("compile error: %w", iss.Err())
+	var ast *cel.Ast
+	var warnings []string
+	if opts.Policy {
+		env, ast, warnings, err = compilePolicy(expr, env, opts)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		var iss *cel.Issues
+		ast, iss = env.Compile(expr)
+		if iss.Err() != nil {
+			return nil, fmt.Errorf("compile error: %w", iss.Err())
+		}
 	}
 
 	inputSchema, err := ComputeInputSchema(env, ast)
@@ -256,25 +278,29 @@ func EvaluateCEL(expr string, envConfig *Config, testCases []TestCase, opts ...c
 			})
 			continue
 		}
-		val, err := out.ConvertToNative(types.JSONValueType)
-		if err != nil {
-			status = fmt.Sprintf("unexpected output type: %v", out.Value())
-			results = append(results, TestResult{
-				TestCase: tc.TestCase,
-				Status:   status,
-			})
-			continue
-		}
-		valPB := protojson.Format(val.(proto.Message))
 		var valJSON any
-		err = json.Unmarshal([]byte(valPB), &valJSON)
-		if err != nil {
-			status = fmt.Sprintf("unexpected output type: %v", out.Value())
-			results = append(results, TestResult{
-				TestCase: tc.TestCase,
-				Status:   status,
-			})
-			continue
+		if optVal, isOpt := out.(*types.Optional); isOpt && !optVal.HasValue() {
+			valJSON = nil
+		} else {
+			val, err := out.ConvertToNative(types.JSONValueType)
+			if err != nil {
+				status = fmt.Sprintf("unexpected output type: %v", out.Value())
+				results = append(results, TestResult{
+					TestCase: tc.TestCase,
+					Status:   status,
+				})
+				continue
+			}
+			valPB := protojson.Format(val.(proto.Message))
+			err = json.Unmarshal([]byte(valPB), &valJSON)
+			if err != nil {
+				status = fmt.Sprintf("unexpected output type: %v", out.Value())
+				results = append(results, TestResult{
+					TestCase: tc.TestCase,
+					Status:   status,
+				})
+				continue
+			}
 		}
 		eq := reflect.DeepEqual(valJSON, tc.Expected)
 		if eq {
@@ -296,6 +322,7 @@ func EvaluateCEL(expr string, envConfig *Config, testCases []TestCase, opts ...c
 		TestResults:      results,
 		SkippedTestCases: skippedTestCases,
 		Coverage:         fmt.Sprintf("Node: %.2f%%, Branch: %.2f%%", report.NodeCoverage(), report.BranchCoverage()),
+		Warnings:         warnings,
 	}
 
 	return &outputSchema, nil
