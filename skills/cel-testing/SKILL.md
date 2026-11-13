@@ -30,11 +30,17 @@ Follow these steps to test a CEL expression:
 
 ### 1. Compile the Expression
 
-Provide the `{ENV}.json` and `{EXPR}.cel` to `cel-expr eval` (or its
-compile-only alias `cel-expr compile`):
+Provide the `{ENV}.json` (if starting from `{ENV}.yaml`, convert it first with
+`cel-expr convert-env -env {ENV}.yaml -out {WORKING_ENV}.json`) and `{EXPR}.cel`
+to `cel-expr eval` (or its compile-only alias `cel-expr compile`; pass `-policy`
+when testing a `.celpolicy` YAML file or inline policy, and pass `-proto_db` or
+`-fds` when protobuf messages or enums are referenced—see
+[protobuf_types.md](skills/cel-authoring/references/protobuf_types.md)):
 
 ```bash
 cel-expr eval -env {ENV}.json -expr "{EXPR}"
+# Or for a .celpolicy file (partial rules without a default branch expect null when unmatched):
+cel-expr eval -env {WORKING_ENV}.json -policy -tests {SUITE}.json {POLICY}.celpolicy
 ```
 
 If successful, the result will contain the `inputSchema` and `outputSchema`

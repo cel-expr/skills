@@ -1,0 +1,12 @@
+name: access_policy
+description: Grants access based on role, path prefix, and MFA verification.
+rule:
+  variables:
+    - name: is_admin_path
+      expression: request.path.startsWith("/admin/")
+  match:
+    - condition: variables.is_admin_path && !(request.role == "admin" && request.mfa_verified)
+      output: '"deny"'
+    - condition: request.role in ["admin", "member"]
+      output: '"allow"'
+    - output: '"deny"'

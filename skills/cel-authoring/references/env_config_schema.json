@@ -24,6 +24,13 @@
         "$ref": "#/$defs/Import"
       }
     },
+    "protoTypes": {
+      "type": "array",
+      "description": "Skills-only list of fully-qualified protobuf message or enum names to load into the FileDescriptorSet without altering CEL container or import resolution.",
+      "items": {
+        "type": "string"
+      }
+    },
     "stdlib": {
       "$ref": "#/$defs/LibrarySubset",
       "description": "Optional subset configuration for the CEL standard library."
@@ -65,6 +72,13 @@
       "description": "CEL runtime/compiler feature flags.",
       "items": {
         "$ref": "#/$defs/Feature"
+      }
+    },
+    "limits": {
+      "type": "array",
+      "description": "CEL compilation and execution limits.",
+      "items": {
+        "$ref": "#/$defs/Limit"
       }
     }
   },
@@ -269,6 +283,21 @@
         "enabled": {
           "type": "boolean",
           "description": "Whether the feature is enabled."
+        }
+      }
+    },
+    "Limit": {
+      "type": "object",
+      "required": ["name", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Limit name (e.g., 'cel.limit.ExpressionCodePoints')."
+        },
+        "value": {
+          "type": "integer",
+          "description": "Maximum allowed limit value."
         }
       }
     }
