@@ -35,10 +35,14 @@ alias cel-expr="$(go env GOPATH)/bin/cel-expr"
 
 1.  **Validate Baseline**: Inspect `<env.json>` (variables and enabled
     `extensions`) and compile the original expression with `cel-expr compile
-    -env <env.json> -expr "<original_expr>"` (for standalone expressions using
-    `?` without an `<env.json>` file, pass inline `-env
-    '{"extensions":[{"name":"optional","version":"latest"}]}'`). Fix any
-    existing errors first using
+    -env <env.json> -expr "<original_expr>"` (pass `-proto_db` or `-fds` when
+    protobuf types/enums are used, and if `undeclared reference` occurs on an
+    expression-only protobuf enum/message, infer its fully-qualified name from
+    the expression and add it to `"protoTypes"` in `<env.json>`—see
+    [protobuf_types.md](skills/cel-authoring/references/protobuf_types.md);
+    for standalone expressions using `?` without an `<env.json>` file, pass
+    inline `-env '{"extensions":[{"name":"optional","version":"latest"}]}'`).
+    Fix any existing errors first using
     [cel-debugging](skills/cel-debugging/SKILL.md).
 2.  **Simplify**: Apply boolean, membership (`in`), constant folding,
     optional, or `cel.bind` simplifications. Only introduce `cel.bind`

@@ -48,7 +48,7 @@ func TestComputeInputSchema(t *testing.T) {
 		t.Fatalf("Failed constructing env: %v", err)
 	}
 	env, err = env.Extend(
-		cel.Types(&testpb.TestMessage{}),
+		cel.TypeDescs((&testpb.TestMessage{}).ProtoReflect().Descriptor().ParentFile()),
 		cel.Variable("msg", cel.ObjectType("cel.skills.internal.proto.TestMessage")),
 	)
 	if err != nil {
@@ -163,6 +163,23 @@ func TestComputeInputSchema(t *testing.T) {
 									"bb": {Type: "integer", Format: "int64"},
 								},
 							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "enum constants and type literals are excluded from input schema",
+			expr: `age == cel.skills.internal.proto.TestEnum.TEST_ENUM_FIRST && msg.single_int32 == cel.skills.internal.proto.TestMessage.NestedEnum.BAR && type(age) == int && type(msg) == cel.skills.internal.proto.TestMessage`,
+			want: &SchemaNode{
+				Type: "object",
+				Properties: map[string]*SchemaNode{
+					"age": {Type: "integer", Format: "int64"},
+					"msg": {
+						Type: "object",
+						Properties: map[string]*SchemaNode{
+							"single_int32": {Type: "integer", Format: "int64"},
 						},
 					},
 				},

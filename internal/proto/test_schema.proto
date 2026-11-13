@@ -18,9 +18,20 @@ package cel.skills.internal.proto;
 
 option go_package = "github.com/cel-expr/skills/internal/proto;testpb";
 
+enum TestEnum {
+  TEST_ENUM_UNSPECIFIED = 0;
+  TEST_ENUM_FIRST = 1;
+  TEST_ENUM_SECOND = 2;
+}
+
 message TestMessage {
   message NestedMessage {
     int64 bb = 1;
+  }
+  enum NestedEnum {
+    NESTED_ENUM_UNSPECIFIED = 0;
+    FOO = 1;
+    BAR = 2;
   }
   NestedMessage single_nested_message = 1;
   int32 single_int32 = 2;

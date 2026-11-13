@@ -248,6 +248,9 @@ func ExtendFileDescriptorSet(fds *descpb.FileDescriptorSet, cfg *Config, db Desc
 				addType(imp.Name)
 			}
 		}
+		for _, pt := range cfg.ProtoTypes {
+			addType(pt)
+		}
 		warnings = append(warnings, collectDeclaredTypes(cfg, addType)...)
 	}
 
