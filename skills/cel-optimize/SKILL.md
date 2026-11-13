@@ -34,23 +34,31 @@ alias cel-expr="$(go env GOPATH)/bin/cel-expr"
 ## Workflow
 
 1.  **Validate Baseline**: Inspect `<env.json>` (variables and enabled
-    `extensions`) and compile the original expression with `cel-expr compile
-    -env <env.json> -expr "<original_expr>"` (pass `-proto_db` or `-fds` when
-    protobuf types/enums are used, and if `undeclared reference` occurs on an
-    expression-only protobuf enum/message, infer its fully-qualified name from
-    the expression and add it to `"protoTypes"` in `<env.json>`—see
+    `extensions`) and compile the original expression or `.celpolicy` with
+    `cel-expr compile -env <env.json> -expr "<original_expr>"` (or
+    `cel-expr compile -env <env.json> -policy <policy.celpolicy>`; pass
+    `-proto_db` or `-fds` when protobuf types/enums are used, and if
+    `undeclared reference` occurs on an expression-only protobuf enum/message,
+    infer its fully-qualified name from the expression and add it to
+    `"protoTypes"` in `<env.json>`—see
     [protobuf_types.md](skills/cel-authoring/references/protobuf_types.md);
     for standalone expressions using `?` without an `<env.json>` file, pass
     inline `-env '{"extensions":[{"name":"optional","version":"latest"}]}'`).
     Fix any existing errors first using
     [cel-debugging](skills/cel-debugging/SKILL.md).
 2.  **Simplify**: Apply boolean, membership (`in`), constant folding,
-    optional, or `cel.bind` simplifications. Only introduce `cel.bind`
-    if `bindings` is enabled in `<env.json>`, and `.?` / `[?]` / `optional.*` if
-    `optional` is enabled (`cel-verifier` enables standard extensions
-    unconditionally, so check `<env.json>` first).
+    optional, or common subexpression simplifications (check `<env.json>` first,
+    since `cel-verifier` enables standard extensions unconditionally, and only
+    introduce `.?` / `[?]` / `optional.*` when `optional` is enabled):
+    *   **Standalone CEL expressions**: Reuse repeated subexpressions with
+        `cel.bind` (only when `bindings` is enabled in `<env.json>`).
+    *   **CEL policies (`.celpolicy`)**: Extract shared subexpressions into the
+        rule's `variables:` block (`variables.<name>`) instead of introducing
+        inline `cel.bind`, and preserve first-match ordering across `match:`
+        branches when refactoring conditions.
 3.  **Compile Candidate**: Run `cel-expr compile -env <env.json> -expr
-    "<optimized_expr>"` to verify types and target environment compatibility.
+    "<optimized_expr>"` (or `-policy <optimized.celpolicy>`) to verify types and
+    target environment compatibility.
 4.  **Prove Equivalence**: Run `cel-verifier verify-equiv` with `--expr1`,
     `--expr2`, and `--var "<name>:<type>"` for each variable.
 5.  **Resolve Outcomes**:
@@ -114,24 +122,31 @@ cel-verifier verify-equiv \
 | Negated Membership | `r != 'guest' && r != 'banned'` | `!(r in ['guest', 'banned'])` |
 | Constant Folding | `timeout > 60 * 60 && 'a' + 'b' == s` | `timeout > 3600 && 'ab' == s` |
 
-### Common Subexpression Elimination (`cel.bind`)
+### Common Subexpression Elimination (`cel.bind` vs. Policy `variables:`)
 
-Factor repeated traversals or transformations into `cel.bind(var, init, body)`
-(requires `bindings` extension in `<env.json>`). Keep `cel.bind` *inside*
-presence/key guards so `init` does not fail when the guard is `false`:
+*   **Standalone CEL expressions (`cel.bind`)**: Factor repeated traversals or
+    transformations into `cel.bind(var, init, body)` (requires `bindings` in
+    `<env.json>`). Keep `cel.bind` *inside* presence/key guards so `init` does
+    not fail when the guard is `false`:
 
-```cel
-// Before:
-'authorization' in request.headers &&
-request.headers['authorization'].lowerAscii().startsWith('bearer ') &&
-request.headers['authorization'].lowerAscii().size() > 20
+    ```cel
+    // Before:
+    'authorization' in request.headers &&
+    request.headers['authorization'].lowerAscii().startsWith('bearer ') &&
+    request.headers['authorization'].lowerAscii().size() > 20
 
-// After:
-'authorization' in request.headers &&
-cel.bind(auth, request.headers['authorization'].lowerAscii(),
-  auth.startsWith('bearer ') && auth.size() > 20
-)
-```
+    // After:
+    'authorization' in request.headers &&
+    cel.bind(auth, request.headers['authorization'].lowerAscii(),
+      auth.startsWith('bearer ') && auth.size() > 20
+    )
+    ```
+
+*   **CEL policies (`variables:`)**: In `.celpolicy` files, declare shared
+    subexpressions in `rule.variables` and reference them as `variables.<name>`
+    rather than introducing inline `cel.bind` (policy variables evaluate lazily
+    on first reference and are memoized across `match:` branches, so still check
+    presence/keys before referencing `variables.<name>`).
 
 ### Optional Value Equivalence & Literal Constructions (`optional<T>`)
 

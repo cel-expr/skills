@@ -656,3 +656,53 @@ func TestCLI_ProtoDB(t *testing.T) {
 		t.Errorf("enum constant leaked into inputSchema: %s", stdout.String())
 	}
 }
+
+func TestCLI_Policy(t *testing.T) {
+	tmpDir := t.TempDir()
+	envJSON := `{"protoTypes":["cel.skills.internal.proto.TestEnum"],"extensions":[{"name":"optional","version":"latest"}],"variables":[{"name":"role","type":"string"},{"name":"code","type":"int"}]}`
+	envPath := filepath.Join(tmpDir, "policy_env.json")
+	if err := os.WriteFile(envPath, []byte(envJSON), 0644); err != nil {
+		t.Fatalf("failed writing env json: %v", err)
+	}
+
+	policyYAML := `name: role_policy
+display_name: Role Policy
+rule:
+  variables:
+    - name: tier_match
+      expression: code == cel.skills.internal.proto.TestEnum.TEST_ENUM_FIRST
+  match:
+    - condition: role == "admin" || variables.tier_match
+      output: "true"
+    - output: "false"
+`
+	policyPath := filepath.Join(tmpDir, "role.celpolicy")
+	if err := os.WriteFile(policyPath, []byte(policyYAML), 0644); err != nil {
+		t.Fatalf("failed writing celpolicy: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	if err := run([]string{"compile", "-env", envPath, "-proto_db", "-policy", policyPath}, &stdout, &stderr, nil); err != nil {
+		t.Fatalf("run(compile -policy file) failed: %v (stderr: %s)", err, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), `ignoring unsupported policy tag "display_name"`) {
+		t.Errorf("expected display_name warning on stderr, got: %s", stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	testsJSON := `[{"testCase":"admin","bindings":{"role":"admin","code":0},"expected":true},{"testCase":"viewer","bindings":{"role":"viewer","code":2},"expected":false}]`
+	if err := run([]string{"eval", "-env", envPath, "-proto_db", "-policy", "-tests", testsJSON, policyPath}, &stdout, &stderr, nil); err != nil {
+		t.Fatalf("run(eval -policy file) failed: %v (stderr: %s)", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), `"status": "pass"`) {
+		t.Errorf("expected pass in eval -policy output, got: %s", stdout.String())
+	}
+
+	// Inline policy YAML via -expr
+	stdout.Reset()
+	stderr.Reset()
+	if err := run([]string{"eval", "-env", envPath, "-proto_db", "-policy", "-bindings", `{"role":"viewer","code":1}`, "-expected", "true", "-expr", policyYAML}, &stdout, &stderr, nil); err != nil {
+		t.Fatalf("run(eval -policy inline) failed: %v (stderr: %s)", err, stderr.String())
+	}
+}

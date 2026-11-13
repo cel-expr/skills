@@ -9,10 +9,16 @@ CEL expressions.
 
 The standalone `cel-expr` CLI requires no special agent configuration and runs directly via standard terminal commands:
 
-- `cel-expr env -env <path|json>`: Defines/validates variables, functions, and types.
-- `cel-expr prompt -env <path|json> -prompt <requirement>`: Generates authoring prompt.
-- `cel-expr compile -env <path|json> -expr <expr>`: Compiles and type-checks CEL expressions.
-- `cel-expr eval -env <path|json> -expr <expr> -tests <path|json>`: Evaluates expressions against test cases.
+-   `cel-expr env -env <path|json>`: Defines/validates variables, functions, and
+    types.
+-   `cel-expr prompt -env <path|json> -prompt <requirement>`: Generates
+    authoring prompt.
+-   `cel-expr compile [-policy] [-proto_db] -env <path|json> -expr
+    <expr|policy>`: Compiles and type-checks CEL expressions or `.celpolicy`
+    files.
+-   `cel-expr eval [-policy] [-proto_db] -env <path|json> -expr <expr|policy>
+    -tests <path|json>`: Evaluates expressions or `.celpolicy` files against
+    test cases.
 
 In open source, build the CLI with `go build -o cel-expr ./cmd/cel-expr` or install via `go install github.com/cel-expr/skills/cmd/cel-expr@latest` (and `alias cel-expr="$(go env GOPATH)/bin/cel-expr"` if `$(go env GOPATH)/bin` is not on your `PATH`).
 
