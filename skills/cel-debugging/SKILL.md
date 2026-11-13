@@ -26,10 +26,11 @@ alias proto-fds="protoc --include_imports --descriptor_set_out=/dev/stdout"
     [env_config_schema.json](skills/cel-authoring/references/env_config_schema.json))
     to verify declared variables, types, and field names before searching
     codebase evaluator implementations.
-3.  **Apply Fix**: Correct the expression or environment configuration based
-    on the error pattern.
-4.  **Verify**: Re-validate the expression using `cel-expr eval` (or
-    `cel-expr compile` when no test bindings are needed).
+3.  **Apply Fix**: Correct the expression, `.celpolicy`, or environment
+    configuration based on the error pattern.
+4.  **Verify**: Re-validate using `cel-expr eval` (or `cel-expr compile` when no
+    test bindings are needed; pass `-policy` for `.celpolicy` files or inline
+    YAML policies).
 
 ## Common Compilation Errors
 

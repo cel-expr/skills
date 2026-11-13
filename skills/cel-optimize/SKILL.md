@@ -34,23 +34,28 @@ alias cel-expr="$(go env GOPATH)/bin/cel-expr"
 ## Workflow
 
 1.  **Validate Baseline**: Inspect `<env.json>` (variables and enabled
-    `extensions`) and compile the original expression with `cel-expr compile
-    -env <env.json> -expr "<original_expr>"` (pass `-proto_db` or `-fds` when
-    protobuf types/enums are used, and if `undeclared reference` occurs on an
-    expression-only protobuf enum/message, infer its fully-qualified name from
-    the expression and add it to `"protoTypes"` in `<env.json>`—see
+    `extensions`) and compile the original expression or `.celpolicy` with
+    `cel-expr compile -env <env.json> -expr "<original_expr>"` (or
+    `cel-expr compile -env <env.json> -policy <policy.celpolicy>`; pass
+    `-proto_db` or `-fds` when protobuf types/enums are used, and if
+    `undeclared reference` occurs on an expression-only protobuf enum/message,
+    infer its fully-qualified name from the expression and add it to
+    `"protoTypes"` in `<env.json>`—see
     [protobuf_types.md](skills/cel-authoring/references/protobuf_types.md);
     for standalone expressions using `?` without an `<env.json>` file, pass
     inline `-env '{"extensions":[{"name":"optional","version":"latest"}]}'`).
     Fix any existing errors first using
     [cel-debugging](skills/cel-debugging/SKILL.md).
 2.  **Simplify**: Apply boolean, membership (`in`), constant folding,
-    optional, or `cel.bind` simplifications. Only introduce `cel.bind`
-    if `bindings` is enabled in `<env.json>`, and `.?` / `[?]` / `optional.*` if
-    `optional` is enabled (`cel-verifier` enables standard extensions
-    unconditionally, so check `<env.json>` first).
+    optional, or `cel.bind` / policy `rule.variables` simplifications. Only
+    introduce `cel.bind` if `bindings` is enabled in `<env.json>`, and `.?` /
+    `[?]` / `optional.*` if `optional` is enabled (`cel-verifier` enables
+    standard extensions unconditionally, so check `<env.json>` first). For
+    `.celpolicy` files, preserve first-match ordering across `rule.match`
+    branches when refactoring conditions.
 3.  **Compile Candidate**: Run `cel-expr compile -env <env.json> -expr
-    "<optimized_expr>"` to verify types and target environment compatibility.
+    "<optimized_expr>"` (or `-policy <optimized.celpolicy>`) to verify types and
+    target environment compatibility.
 4.  **Prove Equivalence**: Run `cel-verifier verify-equiv` with `--expr1`,
     `--expr2`, and `--var "<name>:<type>"` for each variable.
 5.  **Resolve Outcomes**:

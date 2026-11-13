@@ -34,7 +34,8 @@ Custom protobuf messages and enums require descriptors via `-proto_db` or `-fds`
 *   **Use `"protoTypes"`, never `"imports"`, to load descriptors**:
     `"protoTypes"` loads descriptors without altering CEL name resolution;
     `"imports"` registers short-name aliases that risk collisions or drift from
-    production.
+    production. `-proto_db` does not scan `.celpolicy` `imports:`—copy
+    policy-imported type names into `<env.json>` `"protoTypes"`.
 
 ## Diagnosing Protobuf Errors
 
@@ -74,8 +75,8 @@ the expression at `<line>:<col>`:
 2.  **Qualify relative names**:
     *   **Leading dot** (`.acme.v1.Verdict`): Strip `.`; skip `container`.
     *   **Import alias**: If the first segment matches the final segment of an
-        entry in `<env.json>` `"imports"` (e.g., `Msg` -> `acme.v1.Msg`), expand
-        it (`Msg.Sub` -> `acme.v1.Msg.Sub`).
+        entry in `<env.json>` `"imports"` or `.celpolicy` `imports:` (e.g.,
+        `Msg` -> `acme.v1.Msg`), expand it (`Msg.Sub` -> `acme.v1.Msg.Sub`).
     *   **Container**: Otherwise, if `"container"` is set (e.g.,
         `"acme.auth.v1"`) and `<T>` is relative, try `acme.auth.v1.<T>`, then
         parent prefixes `acme.auth.<T>`, `acme.<T>`, `<T>`.

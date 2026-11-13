@@ -1,0 +1,47 @@
+[
+  {
+    "testCase": "admin with mfa on admin path",
+    "bindings": {
+      "request.role": "admin",
+      "request.path": "/admin/settings",
+      "request.mfa_verified": true
+    },
+    "expected": "allow"
+  },
+  {
+    "testCase": "admin without mfa on admin path denied",
+    "bindings": {
+      "request.role": "admin",
+      "request.path": "/admin/settings",
+      "request.mfa_verified": false
+    },
+    "expected": "deny"
+  },
+  {
+    "testCase": "member on admin path denied",
+    "bindings": {
+      "request.role": "member",
+      "request.path": "/admin/settings",
+      "request.mfa_verified": true
+    },
+    "expected": "deny"
+  },
+  {
+    "testCase": "member on regular path allowed",
+    "bindings": {
+      "request.role": "member",
+      "request.path": "/projects/123",
+      "request.mfa_verified": false
+    },
+    "expected": "allow"
+  },
+  {
+    "testCase": "guest denied by fallback",
+    "bindings": {
+      "request.role": "guest",
+      "request.path": "/projects/123",
+      "request.mfa_verified": false
+    },
+    "expected": "deny"
+  }
+]

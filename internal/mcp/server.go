@@ -207,14 +207,16 @@ type GeneratePromptArgs struct {
 // CompileArgs is the arguments for the cel_compile tool.
 type CompileArgs struct {
 	EnvConfig *tools.Config `json:"envConfig,omitempty" jsonschema_description:"The JSON string representing the CEL environment schema. May be omitted for standalone expressions which only use the CEL standard library."`
-	Expr      string        `json:"expr" jsonschema_description:"The CEL expression to compile."`
+	Expr      string        `json:"expr" jsonschema_description:"The CEL expression (or .celpolicy file path / inline YAML when policy is true) to compile."`
+	Policy    bool          `json:"policy,omitempty" jsonschema_description:"Interpret expr as a .celpolicy YAML file path or inline YAML policy document."`
 }
 
 // EvaluateArgs is the arguments for the cel_evaluate tool.
 type EvaluateArgs struct {
 	EnvConfig *tools.Config    `json:"envConfig,omitempty" jsonschema_description:"The JSON string representing the CEL environment schema. May be omitted for standalone expressions which only use the CEL standard library."`
-	Expr      string           `json:"expr" jsonschema_description:"The CEL expression to evaluate."`
+	Expr      string           `json:"expr" jsonschema_description:"The CEL expression (or .celpolicy file path / inline YAML when policy is true) to evaluate."`
 	TestCases []tools.TestCase `json:"testCases" jsonschema_description:"The test cases for evaluation."`
+	Policy    bool             `json:"policy,omitempty" jsonschema_description:"Interpret expr as a .celpolicy YAML file path or inline YAML policy document."`
 }
 
 // EvaluateConformanceArgs is the arguments for the cel_evaluate_conformance tool.
@@ -233,13 +235,15 @@ type FixedEnvGeneratePromptArgs struct {
 
 // FixedEnvCompileArgs is the arguments for the cel_compile tool when a static environment is configured.
 type FixedEnvCompileArgs struct {
-	Expr string `json:"expr" jsonschema_description:"The CEL expression to compile."`
+	Expr   string `json:"expr" jsonschema_description:"The CEL expression (or .celpolicy file path / inline YAML when policy is true) to compile."`
+	Policy bool   `json:"policy,omitempty" jsonschema_description:"Interpret expr as a .celpolicy YAML file path or inline YAML policy document."`
 }
 
 // FixedEnvEvaluateArgs is the arguments for the cel_evaluate tool when a static environment is configured.
 type FixedEnvEvaluateArgs struct {
-	Expr      string           `json:"expr" jsonschema_description:"The CEL expression to evaluate."`
+	Expr      string           `json:"expr" jsonschema_description:"The CEL expression (or .celpolicy file path / inline YAML when policy is true) to evaluate."`
 	TestCases []tools.TestCase `json:"testCases" jsonschema_description:"The test cases for evaluation."`
+	Policy    bool             `json:"policy,omitempty" jsonschema_description:"Interpret expr as a .celpolicy YAML file path or inline YAML policy document."`
 }
 
 // FixedEnvEvaluateConformanceArgs is the arguments for the cel_evaluate_conformance tool when a static environment is configured.
@@ -302,7 +306,10 @@ func (h *toolsHandler) handleCompile(ctx context.Context, request *mcp.CallToolR
 	if err != nil {
 		return nil, nil, tools.AugmentErrorWithWarnings(err, warnings)
 	}
-	res, err := tools.CompileCEL(args.Expr, cfg, opts...)
+	res, err := tools.CompileCELWithOptions(args.Expr, cfg, tools.CompileOptions{
+		EnvOpts: opts,
+		Policy:  args.Policy,
+	})
 	if err != nil {
 		return nil, nil, tools.AugmentErrorWithWarnings(err, warnings)
 	}
@@ -315,7 +322,10 @@ func (h *toolsHandler) handleEvaluate(ctx context.Context, request *mcp.CallTool
 	if err != nil {
 		return nil, nil, tools.AugmentErrorWithWarnings(err, warnings)
 	}
-	res, err := tools.EvaluateCEL(args.Expr, cfg, args.TestCases, opts...)
+	res, err := tools.EvaluateCELWithOptions(args.Expr, cfg, args.TestCases, tools.CompileOptions{
+		EnvOpts: opts,
+		Policy:  args.Policy,
+	})
 	if err != nil {
 		return nil, nil, tools.AugmentErrorWithWarnings(err, warnings)
 	}
@@ -345,7 +355,8 @@ func (h *toolsHandler) handleFixedEnvGeneratePrompt(ctx context.Context, request
 
 func (h *toolsHandler) handleFixedEnvCompile(ctx context.Context, request *mcp.CallToolRequest, args FixedEnvCompileArgs) (*mcp.CallToolResult, any, error) {
 	return h.handleCompile(ctx, request, CompileArgs{
-		Expr: args.Expr,
+		Expr:   args.Expr,
+		Policy: args.Policy,
 	})
 }
 
@@ -353,6 +364,7 @@ func (h *toolsHandler) handleFixedEnvEvaluate(ctx context.Context, request *mcp.
 	return h.handleEvaluate(ctx, request, EvaluateArgs{
 		Expr:      args.Expr,
 		TestCases: args.TestCases,
+		Policy:    args.Policy,
 	})
 }
 
