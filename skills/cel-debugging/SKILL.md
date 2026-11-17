@@ -36,12 +36,25 @@ alias proto-fds="protoc --include_imports --descriptor_set_out=/dev/stdout"
 These errors occur before execution due to typos, unknown symbols, or invalid
 type overloading.
 
-### 1. "Undeclared Reference"
+### 1. "Undeclared Reference" or Missing Protobuf Types
 
-Referencing an undefined variable, function, or field:
-- Issue: `user.amin` (typo for `user.admin`, `user.is_admin`)
-- Solution: Declare the variable in the environment configuration
-  (`envConfig`), or correct typos in field/map key names.
+Referencing an undefined variable, function, field, or unloaded protobuf
+message/enum:
+- Issue (typo): `user.amin` (typo for `user.admin`, `user.is_admin`)
+- Solution: Declare the variable in `envConfig`, or correct typos in field/map
+  key names.
+- Issue (missing protobuf message/enum in expression or `envConfig`):
+  `undeclared reference to 'acme'` (on a qualified enum like
+  `acme.v1.Verdict.ALLOW`, where `cel-go` reports only the root identifier),
+  `undeclared reference to 'acme.v1.Controls'`, or `undefined type name`
+- Solution: Inspect the full dotted path or struct literal at `<line>:<col>` in
+  the expression (stripping trailing `UPPER_SNAKE_CASE` enum constant names and
+  expanding `container` / `imports`), add the fully-qualified message or enum
+  name to `"protoTypes"` in `envConfig`, and pass `-proto_db` (or `-fds` for
+  local `.proto` files). Declare enum variables with `"type": "int"`. **Do not**
+  add entries to `"imports"` just to trigger type lookup, as `"imports"` alters
+  expression name resolution—see
+  [protobuf_types.md](skills/cel-authoring/references/protobuf_types.md).
 
 ### 2. "Type Mismatch" or "No Matching Overload"
 

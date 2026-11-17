@@ -24,6 +24,13 @@
         "$ref": "#/$defs/Import"
       }
     },
+    "protoTypes": {
+      "type": "array",
+      "description": "Skills-only list of fully-qualified protobuf message or enum names to load into the FileDescriptorSet without altering CEL container or import resolution.",
+      "items": {
+        "type": "string"
+      }
+    },
     "stdlib": {
       "$ref": "#/$defs/LibrarySubset",
       "description": "Optional subset configuration for the CEL standard library."

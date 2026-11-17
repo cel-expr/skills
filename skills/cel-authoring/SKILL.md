@@ -49,11 +49,19 @@ cel-expr env -env <env.json>
 
 *   Namespaced variables with simple types improve correctness checks.
 *   Use namespacing for related concepts, e.g. `request.path`, `request.time`.
-*   Use protobuf object types for strongly typed structured data. When
-    referencing `.proto` message types, pass `-fds` inline using `proto-fds`:
+*   Use protobuf object types for strongly typed structured data. Declare
+    protobuf types with their **fully-qualified** package names (declare enum
+    variables as `int`) and pass `-proto_db` or `-fds`:
     ```bash
+    cel-expr env -env <env.json> -proto_db
+    # or with an explicit FileDescriptorSet from protoc:
     cel-expr env -env <env.json> -fds <(proto-fds -I <proto_dir> <schema.proto>)
     ```
+    When expressions reference protobuf enums or message literals not present in
+    `variables`, infer the fully-qualified type from the expression on
+    `undeclared reference` and add it to `"protoTypes"` in `<env.json>` (never
+    add `"imports"` solely to load descriptors). See
+    [protobuf_types.md](skills/cel-authoring/references/protobuf_types.md).
 *   Only use `map<string, dyn>` when the variable is a dynamic structure like JSON.
 *   Type names are formatted according to:
     [type_grammar_ebnf.txt](skills/cel-authoring/references/type_grammar_ebnf.txt).

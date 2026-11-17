@@ -634,4 +634,25 @@ func TestCLI_ProtoDB(t *testing.T) {
 	if !strings.Contains(err.Error(), "proto_db warnings:") && !strings.Contains(stderr.String(), "warning:") {
 		t.Errorf("expected error or stderr to contain proto_db warnings, got err=%v, stderr=%s", err, stderr.String())
 	}
+
+	// 8. Expression-only enum and message literal fail without protoTypes, and succeed once listed in protoTypes
+	stdout.Reset()
+	stderr.Reset()
+	intOnlyEnv := `{"variables":[{"name":"code","type":"int"}]}`
+	exprOnlyProto := "code == cel.skills.internal.proto.TestEnum.TEST_ENUM_FIRST && cel.skills.internal.proto.TestMessage{single_int32: 7}.single_int32 == 7"
+	err = run([]string{"compile", "-env", intOnlyEnv, "-proto_db", "-expr", exprOnlyProto}, &stdout, &stderr, nil)
+	if err == nil || !strings.Contains(err.Error(), "undeclared reference") {
+		t.Fatalf("expected expression-only proto without protoTypes to fail with undeclared reference, got: %v", err)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	protoTypesEnv := `{"protoTypes":["cel.skills.internal.proto.TestEnum","cel.skills.internal.proto.TestMessage"],"variables":[{"name":"code","type":"int"}]}`
+	err = run([]string{"eval", "-env", protoTypesEnv, "-proto_db", "-bindings", `{"code":1}`, "-expected", "true", exprOnlyProto}, &stdout, &stderr, nil)
+	if err != nil {
+		t.Fatalf("run(eval with protoTypes) failed: %v (stderr: %s)", err, stderr.String())
+	}
+	if strings.Contains(stdout.String(), "TEST_ENUM_FIRST") {
+		t.Errorf("enum constant leaked into inputSchema: %s", stdout.String())
+	}
 }

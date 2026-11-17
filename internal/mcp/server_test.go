@@ -1040,4 +1040,44 @@ func TestDynamicEnv_UseProtoDB(t *testing.T) {
 			t.Errorf("expected augmented warnings in error, got: %s", text)
 		}
 	}
+
+	missingProtoRes, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "cel_compile",
+		Arguments: map[string]any{
+			"envConfig": map[string]any{
+				"variables": []any{map[string]any{"name": "code", "type": "int"}},
+			},
+			"expr": "code == cel.skills.internal.proto.TestEnum.TEST_ENUM_FIRST",
+		},
+	})
+	if err != nil {
+		t.Fatalf("CallTool missing proto compile failed: %v", err)
+	}
+	if !missingProtoRes.IsError {
+		t.Error("expected missing proto compile to fail without protoTypes")
+	}
+
+	exprOnlyRes, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "cel_evaluate",
+		Arguments: map[string]any{
+			"envConfig": map[string]any{
+				"protoTypes": []any{"cel.skills.internal.proto.TestEnum", "cel.skills.internal.proto.TestMessage"},
+				"variables":  []any{map[string]any{"name": "code", "type": "int"}},
+			},
+			"expr": "code == cel.skills.internal.proto.TestEnum.TEST_ENUM_FIRST && cel.skills.internal.proto.TestMessage{single_int32: 5}.single_int32 == 5",
+			"testCases": []any{
+				map[string]any{
+					"testCase": "enum and struct literal",
+					"bindings": map[string]any{"code": 1},
+					"expected": true,
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CallTool protoTypes eval failed: %v", err)
+	}
+	if exprOnlyRes.IsError {
+		t.Errorf("cel_evaluate with protoTypes failed: %v", exprOnlyRes.Content)
+	}
 }

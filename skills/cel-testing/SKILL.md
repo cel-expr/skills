@@ -31,7 +31,9 @@ Follow these steps to test a CEL expression:
 ### 1. Compile the Expression
 
 Provide the `{ENV}.json` and `{EXPR}.cel` to `cel-expr eval` (or its
-compile-only alias `cel-expr compile`):
+compile-only alias `cel-expr compile`; pass `-proto_db` or `-fds` when protobuf
+messages or enums are referenced—see
+[protobuf_types.md](skills/cel-authoring/references/protobuf_types.md)):
 
 ```bash
 cel-expr eval -env {ENV}.json -expr "{EXPR}"
