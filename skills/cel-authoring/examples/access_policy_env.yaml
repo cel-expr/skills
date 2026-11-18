@@ -1,0 +1,16 @@
+name: access_policy_env
+description: Environment for evaluating request access policies
+extensions:
+  - name: bindings
+    version: latest
+  - name: optional
+    version: latest
+  - name: strings
+    version: latest
+variables:
+  - name: request.role
+    type: string
+  - name: request.path
+    type: string
+  - name: request.mfa_verified
+    type: bool

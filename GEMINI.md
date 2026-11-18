@@ -9,6 +9,8 @@ CEL expressions.
 
 The standalone `cel-expr` CLI requires no special agent configuration and runs directly via standard terminal commands:
 
+-   `cel-expr convert-env -env <env.yaml> [-out <env.json>]`: Converts a
+    `cel-go` YAML environment into skills JSON format.
 -   `cel-expr env -env <path|json>`: Defines/validates variables, functions, and
     types.
 -   `cel-expr prompt -env <path|json> -prompt <requirement>`: Generates

@@ -24,10 +24,11 @@ alias proto-fds="protoc --include_imports --descriptor_set_out=/dev/stdout"
 2.  **Locate Environment Configuration**: Inspect `<skill_dir>/resources/cel_env.json`
     or workspace `*_env.json` (conforming to
     [env_config_schema.json](skills/cel-authoring/references/env_config_schema.json))
-    to verify declared variables, types, and field names before searching
-    codebase evaluator implementations.
-3.  **Apply Fix**: Correct the expression, `.celpolicy`, or environment
-    configuration based on the error pattern.
+    before searching codebase evaluator implementations. If only a `*_env.yaml`
+    exists, convert it to a working JSON file first with
+    `cel-expr convert-env -env <env.yaml> -out <working_env.json>`.
+3.  **Apply Fix**: Correct the expression, `.celpolicy`, or working JSON
+    environment configuration based on the error pattern.
 4.  **Verify**: Re-validate using `cel-expr eval` (or `cel-expr compile` when no
     test bindings are needed; pass `-policy` for `.celpolicy` files or inline
     YAML policies).

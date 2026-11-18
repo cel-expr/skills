@@ -22,7 +22,9 @@ alias proto-fds="protoc --include_imports --descriptor_set_out=/dev/stdout"
 Follow this end-to-end workflow to author CEL expressions:
 
 1.  **Locate or Create Environment**: Reuse an existing
-    `<skill_dir>/resources/cel_env.json` or workspace `*_env.json`, or author
+    `<skill_dir>/resources/cel_env.json` or workspace `*_env.json` (if only a
+    `*_env.yaml` exists, convert it first with
+    `cel-expr convert-env -env <env.yaml> -out <working_env.json>`), or author
     and validate a new `envConfig` with `cel-expr env -env <env.json>`.
 2.  **Generate Prompt (Optional)**: Skip if you have already read a concise
     `<env.json>`. Run `cel-expr prompt` only for large/extension-heavy
@@ -35,7 +37,14 @@ Follow this end-to-end workflow to author CEL expressions:
 ## Locate or Create Environment
 
 Check for an existing `<skill_dir>/resources/cel_env.json` or workspace
-`*_env.json` first and read it before searching evaluator source code.
+`*_env.json` / `*_env.yaml` first and read it before searching evaluator source
+code. If the workspace provides a YAML environment (`*_env.yaml`), convert it
+into a working skills JSON file first and pass that JSON file to all subsequent
+commands:
+
+```bash
+cel-expr convert-env -env <env.yaml> -out <working_env.json>
+```
 
 If no environment JSON exists, search the codebase for how the CEL environment
 is configured (variables, functions, macros, and features), generate an
@@ -159,9 +168,11 @@ bearer token"):
 *   Tests:
     [network_headers_tests.json](skills/cel-authoring/examples/network_headers_tests.json)
 
-Policy example (`.celpolicy`):
+Policy example (`.celpolicy` with YAML-to-JSON converted environment):
 
-*   Environment:
+*   Source YAML Environment:
+    [access_policy_env.yaml](skills/cel-authoring/examples/access_policy_env.yaml)
+*   Converted JSON Environment:
     [access_policy_env.json](skills/cel-authoring/examples/access_policy_env.json)
 *   Policy:
     [access_policy.celpolicy](skills/cel-authoring/examples/access_policy.celpolicy)

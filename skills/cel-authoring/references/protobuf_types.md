@@ -34,7 +34,8 @@ Custom protobuf messages and enums require descriptors via `-proto_db` or `-fds`
 *   **Use `"protoTypes"`, never `"imports"`, to load descriptors**:
     `"protoTypes"` loads descriptors without altering CEL name resolution;
     `"imports"` registers short-name aliases that risk collisions or drift from
-    production. If you use `.celpolicy` files, also copy any types from the
+    production. `cel-expr convert-env` outputs start without `"protoTypes"`. If
+    you use `.celpolicy` files, also copy any types from the
     policy's `imports:` block into `<env.json>` `"protoTypes"`, since
     `-proto_db` only reads `<env.json>`.
 
