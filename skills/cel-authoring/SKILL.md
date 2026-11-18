@@ -128,10 +128,29 @@ Generate additional test cases until you achieve >95% node and branch coverage.
 
 Report the test results with node and branch coverage percentages.
 
-## Complete Example
+## Authoring CEL Policies (`.celpolicy`)
 
-The following is a complete example of the artifacts generated from the prompt:
-"Validate the request is authenticated by checking for a bearer token"
+When authoring or validating multi-rule CEL policies (`.celpolicy` / YAML policy
+documents with `rule.variables` and ordered first-match `rule.match` blocks),
+pass `-policy` to `cel-expr compile` or `cel-expr eval` (or `"policy": true` in
+MCP `cel_compile` / `cel_evaluate`). The expression input may be either a file
+path or inline policy YAML:
+
+```bash
+cel-expr compile -env <env.json> -policy <policy.celpolicy>
+cel-expr eval -env <env.json> -policy -tests <tests.json> <policy.celpolicy>
+```
+
+*   `rule.variables` entries are scoped in declaration order and referenced as
+    `variables.<name>`.
+*   `rule.match` branches evaluate in order (`first-match`). When a policy omits
+    an unconditional fallback `output`, the composed policy returns an optional
+    value (`null` in `-tests` `expected` when no branch matches).
+
+## Complete Examples
+
+Expression example ("Validate the request is authenticated by checking for a
+bearer token"):
 
 *   Environment:
     [network_env.json](skills/cel-authoring/examples/network_env.json)
@@ -139,3 +158,12 @@ The following is a complete example of the artifacts generated from the prompt:
     [network_headers.cel](skills/cel-authoring/examples/network_headers.cel)
 *   Tests:
     [network_headers_tests.json](skills/cel-authoring/examples/network_headers_tests.json)
+
+Policy example (`.celpolicy`):
+
+*   Environment:
+    [access_policy_env.json](skills/cel-authoring/examples/access_policy_env.json)
+*   Policy:
+    [access_policy.celpolicy](skills/cel-authoring/examples/access_policy.celpolicy)
+*   Tests:
+    [access_policy_tests.json](skills/cel-authoring/examples/access_policy_tests.json)
