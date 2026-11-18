@@ -656,3 +656,118 @@ func TestCLI_ProtoDB(t *testing.T) {
 		t.Errorf("enum constant leaked into inputSchema: %s", stdout.String())
 	}
 }
+
+func TestCLI_Policy(t *testing.T) {
+	tmpDir := t.TempDir()
+	envJSON := `{"protoTypes":["cel.skills.internal.proto.TestEnum"],"extensions":[{"name":"optional","version":"latest"}],"variables":[{"name":"role","type":"string"},{"name":"code","type":"int"}]}`
+	envPath := filepath.Join(tmpDir, "policy_env.json")
+	if err := os.WriteFile(envPath, []byte(envJSON), 0644); err != nil {
+		t.Fatalf("failed writing env json: %v", err)
+	}
+
+	policyYAML := `name: role_policy
+display_name: Role Policy
+rule:
+  variables:
+    - name: tier_match
+      expression: code == cel.skills.internal.proto.TestEnum.TEST_ENUM_FIRST
+  match:
+    - condition: role == "admin" || variables.tier_match
+      output: "true"
+    - output: "false"
+`
+	policyPath := filepath.Join(tmpDir, "role.celpolicy")
+	if err := os.WriteFile(policyPath, []byte(policyYAML), 0644); err != nil {
+		t.Fatalf("failed writing celpolicy: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	if err := run([]string{"compile", "-env", envPath, "-proto_db", "-policy", policyPath}, &stdout, &stderr, nil); err != nil {
+		t.Fatalf("run(compile -policy file) failed: %v (stderr: %s)", err, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), `ignoring unsupported policy tag "display_name"`) {
+		t.Errorf("expected display_name warning on stderr, got: %s", stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	testsJSON := `[{"testCase":"admin","bindings":{"role":"admin","code":0},"expected":true},{"testCase":"viewer","bindings":{"role":"viewer","code":2},"expected":false}]`
+	if err := run([]string{"eval", "-env", envPath, "-proto_db", "-policy", "-tests", testsJSON, policyPath}, &stdout, &stderr, nil); err != nil {
+		t.Fatalf("run(eval -policy file) failed: %v (stderr: %s)", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), `"status": "pass"`) {
+		t.Errorf("expected pass in eval -policy output, got: %s", stdout.String())
+	}
+
+	// Inline policy YAML via -expr
+	stdout.Reset()
+	stderr.Reset()
+	if err := run([]string{"eval", "-env", envPath, "-proto_db", "-policy", "-bindings", `{"role":"viewer","code":1}`, "-expected", "true", "-expr", policyYAML}, &stdout, &stderr, nil); err != nil {
+		t.Fatalf("run(eval -policy inline) failed: %v (stderr: %s)", err, stderr.String())
+	}
+}
+
+func TestCLI_ConvertEnv(t *testing.T) {
+	tmpDir := t.TempDir()
+	yamlEnv := `name: cli_yaml_env
+extensions:
+  - name: optional
+variables:
+  - name: msg
+    type: cel.skills.internal.proto.TestMessage
+functions:
+  - name: custom.audit
+    overloads:
+      - id: custom_audit_int_bool
+        args:
+          - int
+        return: bool
+`
+	yamlPath := filepath.Join(tmpDir, "test_env.yaml")
+	if err := os.WriteFile(yamlPath, []byte(yamlEnv), 0644); err != nil {
+		t.Fatalf("failed writing yaml env: %v", err)
+	}
+	jsonPath := filepath.Join(tmpDir, "test_env.json")
+
+	// Passing raw YAML directly to compile without convert-env fails JSON parsing.
+	var stdout, stderr bytes.Buffer
+	if err := run([]string{"compile", "-env", yamlPath, "true"}, &stdout, &stderr, nil); err == nil {
+		t.Fatal("expected compile -env <yaml> to fail without convert-env")
+	}
+
+	// 1. Convert YAML file to JSON file via convert-env -out
+	stdout.Reset()
+	stderr.Reset()
+	if err := run([]string{"convert-env", "-env", yamlPath, "-out", jsonPath}, &stdout, &stderr, nil); err != nil {
+		t.Fatalf("run(convert-env -out) failed: %v (stderr: %s)", err, stderr.String())
+	}
+
+	// 2. Also support 'cel-expr env convert' alias writing to stdout (and reading from stdin '-')
+	stdout.Reset()
+	stderr.Reset()
+	if err := run([]string{"env", "convert", "-"}, &stdout, &stderr, strings.NewReader(yamlEnv)); err != nil {
+		t.Fatalf("run(env convert -) failed: %v (stderr: %s)", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), `"name": "cli_yaml_env"`) {
+		t.Errorf("expected JSON config on stdout, got: %s", stdout.String())
+	}
+
+	// 3. Validate and evaluate using the converted JSON environment
+	stdout.Reset()
+	stderr.Reset()
+	if err := run([]string{"env", "-env", jsonPath, "-proto_db"}, &stdout, &stderr, nil); err != nil {
+		t.Fatalf("run(env -env converted.json) failed: %v (stderr: %s)", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), `"valid": true`) {
+		t.Errorf("expected valid: true, got: %s", stdout.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if err := run([]string{"eval", "-env", jsonPath, "-proto_db", "-bindings", `{"msg":{"singleInt32":42}}`, "-expected", "true", "msg.?single_int32.orValue(0) == 42 || custom.audit(1)"}, &stdout, &stderr, nil); err != nil {
+		t.Fatalf("run(eval -env converted.json) failed: %v (stderr: %s)", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), `"status": "pass"`) {
+		t.Errorf("expected pass, got: %s", stdout.String())
+	}
+}

@@ -73,6 +73,13 @@
       "items": {
         "$ref": "#/$defs/Feature"
       }
+    },
+    "limits": {
+      "type": "array",
+      "description": "CEL compilation and execution limits.",
+      "items": {
+        "$ref": "#/$defs/Limit"
+      }
     }
   },
   "$defs": {
@@ -276,6 +283,21 @@
         "enabled": {
           "type": "boolean",
           "description": "Whether the feature is enabled."
+        }
+      }
+    },
+    "Limit": {
+      "type": "object",
+      "required": ["name", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Limit name (e.g., 'cel.limit.ExpressionCodePoints')."
+        },
+        "value": {
+          "type": "integer",
+          "description": "Maximum allowed limit value."
         }
       }
     }

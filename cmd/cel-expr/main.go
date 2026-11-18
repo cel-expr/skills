@@ -41,6 +41,7 @@ Available Commands:
   compile     Alias for compile-only validation (all eval flags except test cases/bindings)
   conformance Evaluate CEL conformance tests from cel-spec textproto files
   env         Validate or inspect an environment configuration
+  convert-env Convert a cel-go YAML environment file into skills JSON format
   prompt      Generate an LLM authoring prompt from an environment and requirement
   mcp         Start the Model Context Protocol (MCP) server over stdio
   help        Show help for cel-expr or a specific command
@@ -73,6 +74,8 @@ func run(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
 		return runConformance(cmdArgs, stdout, stderr, stdin)
 	case "env":
 		return runEnv(cmdArgs, stdout, stderr, stdin)
+	case "convert-env":
+		return runConvertEnv(cmdArgs, stdout, stderr, stdin)
 	case "prompt":
 		return runPrompt(cmdArgs, stdout, stderr, stdin)
 	case "mcp", "serve":
@@ -153,12 +156,13 @@ func runCompile(args []string, stdout, stderr io.Writer, stdin io.Reader) error 
 	fs := flag.NewFlagSet("compile", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	envFlag, fdsFlag, protoDBFlag := parseCommonEnvFlags(fs)
-	exprFlag := fs.String("expr", "", "CEL expression string")
+	exprFlag := fs.String("expr", "", "CEL expression string (or policy file path / inline YAML when -policy is set)")
+	policyFlag := fs.Bool("policy", false, "Interpret expression as a .celpolicy YAML file path or inline YAML policy document")
 
 	fs.Usage = func() {
-		fmt.Fprintln(stderr, `Usage: cel-expr compile [-env <path|json>] [-fds <path>] [-proto_db] [-expr <expr>] [expression]
+		fmt.Fprintln(stderr, `Usage: cel-expr compile [-env <path|json>] [-fds <path>] [-proto_db] [-policy] [-expr <expr|policy>] [expression|policy]
 
-Alias for compile-only validation: supports all environment, descriptor, and expression flags
+Alias for compile-only validation: supports all environment, descriptor, policy, and expression flags
 that 'cel-expr eval' supports, without test cases or bindings. Outputs inputSchema and outputSchema.
 
 Flags:`)
@@ -188,9 +192,15 @@ Flags:`)
 		fmt.Fprintf(stderr, "warning: %s\n", w)
 	}
 
-	res, err := tools.CompileCEL(expr, cfg, opts...)
+	res, err := tools.CompileCELWithOptions(expr, cfg, tools.CompileOptions{
+		EnvOpts: opts,
+		Policy:  *policyFlag,
+	})
 	if err != nil {
 		return tools.AugmentErrorWithWarnings(fmt.Errorf("compilation failed: %w", err), warnings)
+	}
+	for _, w := range res.Warnings {
+		fmt.Fprintf(stderr, "warning: %s\n", w)
 	}
 
 	outBytes, err := json.MarshalIndent(res, "", "  ")
@@ -206,7 +216,8 @@ func runEval(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
 	fs := flag.NewFlagSet("eval", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	envFlag, fdsFlag, protoDBFlag := parseCommonEnvFlags(fs)
-	exprFlag := fs.String("expr", "", "CEL expression string")
+	exprFlag := fs.String("expr", "", "CEL expression string (or policy file path / inline YAML when -policy is set)")
+	policyFlag := fs.Bool("policy", false, "Interpret expression as a .celpolicy YAML file path or inline YAML policy document")
 	testsFlag := fs.String("tests", "", "Path to test cases JSON file or inline JSON array: '[{\"testCase\": \"...\", \"bindings\": {...}, \"expected\": ...}]'")
 	fs.StringVar(testsFlag, "test_cases", "", "Alias for -tests")
 	bindingsFlag := fs.String("bindings", "", "Single test case variable bindings JSON file or inline JSON object: '{\"var\": \"val\"}'")
@@ -214,7 +225,7 @@ func runEval(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
 	conformanceFlag := fs.String("conformance", "", "Path to conformance textproto file or inline textproto content")
 
 	fs.Usage = func() {
-		fmt.Fprintln(stderr, `Usage: cel-expr eval [-env <path|json>] [-fds <path>] [-tests <path|json>] [-bindings <path|json>] [-expected <json|string>] [-conformance <path|textproto>] [-expr <expr>] [expression]
+		fmt.Fprintln(stderr, `Usage: cel-expr eval [-env <path|json>] [-fds <path>] [-proto_db] [-policy] [-tests <path|json>] [-bindings <path|json>] [-expected <json|string>] [-conformance <path|textproto>] [-expr <expr|policy>] [expression|policy]
 
 Compiles and evaluates a CEL expression against an environment configuration:
   1. Compiles and type-checks the expression (reporting inputSchema and outputSchema).
@@ -326,9 +337,15 @@ Flags:`)
 		fmt.Fprintf(stderr, "warning: %s\n", w)
 	}
 
-	res, err := tools.EvaluateCEL(expr, cfg, testCases, opts...)
+	res, err := tools.EvaluateCELWithOptions(expr, cfg, testCases, tools.CompileOptions{
+		EnvOpts: opts,
+		Policy:  *policyFlag,
+	})
 	if err != nil {
 		return tools.AugmentErrorWithWarnings(fmt.Errorf("evaluation failed: %w", err), warnings)
+	}
+	for _, w := range res.Warnings {
+		fmt.Fprintf(stderr, "warning: %s\n", w)
 	}
 
 	hasExplicitTests := (*testsFlag != "") || (*bindingsFlag != "") || (*expectedFlag != "")
@@ -445,12 +462,16 @@ func runConformance(args []string, stdout, stderr io.Writer, stdin io.Reader) er
 }
 
 func runEnv(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
+	if len(args) > 0 && args[0] == "convert" {
+		return runConvertEnv(args[1:], stdout, stderr, stdin)
+	}
 	fs := flag.NewFlagSet("env", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	envFlag, fdsFlag, protoDBFlag := parseCommonEnvFlags(fs)
 
 	fs.Usage = func() {
 		fmt.Fprintln(stderr, "Usage: cel-expr env -env <path|json> [validate]")
+		fmt.Fprintln(stderr, "       cel-expr env convert [-env <env.yaml>] [-out <env.json>] [env.yaml]")
 		fmt.Fprintln(stderr, "\nFlags:")
 		fs.PrintDefaults()
 	}
@@ -490,6 +511,66 @@ func runEnv(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
 	}
 
 	fmt.Fprintln(stdout, string(outBytes))
+	return nil
+}
+
+func runConvertEnv(args []string, stdout, stderr io.Writer, stdin io.Reader) error {
+	fs := flag.NewFlagSet("convert-env", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	inFlag := fs.String("env", "", "Path to YAML environment file or '-' for stdin (alias: -in)")
+	fs.StringVar(inFlag, "in", "", "Alias for -env")
+	outFlag := fs.String("out", "", "Optional output path for converted JSON environment file (alias: -o)")
+	fs.StringVar(outFlag, "o", "", "Alias for -out")
+
+	fs.Usage = func() {
+		fmt.Fprintln(stderr, "Usage: cel-expr convert-env [-env <env.yaml>] [-out <env.json>] [env.yaml]")
+		fmt.Fprintln(stderr, "\nConverts a cel-go YAML environment configuration into skills JSON format.")
+		fmt.Fprintln(stderr, "\nFlags:")
+		fs.PrintDefaults()
+	}
+
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
+		return err
+	}
+
+	inPath := *inFlag
+	if inPath == "" && fs.NArg() > 0 {
+		inPath = fs.Args()[0]
+	}
+	if inPath == "" {
+		return errors.New("YAML environment input is required (use -env <env.yaml>, pass path as argument, or '-' for stdin)")
+	}
+
+	var yamlBytes []byte
+	var err error
+	if inPath == "-" {
+		yamlBytes, err = io.ReadAll(stdin)
+		if err != nil {
+			return fmt.Errorf("reading stdin: %w", err)
+		}
+	} else {
+		yamlBytes, err = os.ReadFile(inPath)
+		if err != nil {
+			return fmt.Errorf("reading YAML environment file %q: %w", inPath, err)
+		}
+	}
+
+	jsonBytes, err := tools.ConvertEnvYAMLToJSON(yamlBytes)
+	if err != nil {
+		return fmt.Errorf("converting YAML environment: %w", err)
+	}
+
+	if *outFlag != "" {
+		if err := os.WriteFile(*outFlag, append(jsonBytes, '\n'), 0644); err != nil {
+			return fmt.Errorf("writing JSON environment file %q: %w", *outFlag, err)
+		}
+		return nil
+	}
+
+	fmt.Fprintln(stdout, string(jsonBytes))
 	return nil
 }
 

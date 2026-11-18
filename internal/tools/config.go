@@ -39,6 +39,7 @@ type Config struct {
 	Functions       []*Function      `json:"functions,omitempty"`
 	Validators      []*Validator     `json:"validators,omitempty"`
 	Features        []*Feature       `json:"features,omitempty"`
+	Limits          []*Limit         `json:"limits,omitempty"`
 }
 
 // ToCELConfig converts a Config to a celenv.Config.
@@ -84,6 +85,9 @@ func (c *Config) ToCELConfig() (*celenv.Config, error) {
 	}
 	for _, f := range c.Features {
 		res.Features = append(res.Features, f.ToCELFeature())
+	}
+	for _, l := range c.Limits {
+		res.Limits = append(res.Limits, l.ToCELLimit())
 	}
 	return res, res.Validate()
 }
@@ -303,6 +307,20 @@ func (f *Feature) ToCELFeature() *celenv.Feature {
 	return celenv.NewFeature(f.Name, f.Enabled)
 }
 
+// Limit is an execution or compilation limit for a cel-go Env.
+type Limit struct {
+	Name  string `json:"name"`
+	Value int    `json:"value"`
+}
+
+// ToCELLimit converts a Limit to a celenv.Limit.
+func (l *Limit) ToCELLimit() *celenv.Limit {
+	if l == nil {
+		return nil
+	}
+	return celenv.NewLimit(l.Name, l.Value)
+}
+
 // ConfigFromJSON converts a JSON string to a Config.
 func ConfigFromJSON(configJSON string) (*Config, error) {
 	var config Config
@@ -310,6 +328,142 @@ func ConfigFromJSON(configJSON string) (*Config, error) {
 		return nil, fmt.Errorf("json.Unmarshal(configJSON) failed: %v", err)
 	}
 	return &config, nil
+}
+
+// ConfigFromYAML parses and validates a CEL environment configuration in cel-go's canonical YAML format.
+func ConfigFromYAML(data []byte) (*Config, error) {
+	celCfg, err := celenv.ConfigFromYAML(data)
+	if err != nil {
+		return nil, fmt.Errorf("celenv.ConfigFromYAML failed: %w", err)
+	}
+	if err := celCfg.Validate(); err != nil {
+		return nil, err
+	}
+	return configFromCELConfig(celCfg), nil
+}
+
+// ConvertEnvYAMLToJSON parses a cel-go YAML environment configuration, validates it, and
+// serializes it as a formatted skills Config JSON document.
+func ConvertEnvYAMLToJSON(data []byte) ([]byte, error) {
+	cfg, err := ConfigFromYAML(data)
+	if err != nil {
+		return nil, err
+	}
+	return json.MarshalIndent(cfg, "", "  ")
+}
+
+func formatCELTypeDesc(td *celenv.TypeDesc) string {
+	if td == nil {
+		return ""
+	}
+	return td.SpecifierFormat()
+}
+
+func configFromCELConfig(celCfg *celenv.Config) *Config {
+	if celCfg == nil {
+		return nil
+	}
+	cfg := &Config{
+		Name:        celCfg.Name,
+		Description: celCfg.Description,
+		Container:   celCfg.Container,
+	}
+	for _, imp := range celCfg.Imports {
+		if imp != nil {
+			cfg.Imports = append(cfg.Imports, &Import{Name: imp.Name})
+		}
+	}
+	if celCfg.StdLib != nil {
+		sub := &LibrarySubset{
+			Disabled:      celCfg.StdLib.Disabled,
+			DisableMacros: celCfg.StdLib.DisableMacros,
+			IncludeMacros: append([]string{}, celCfg.StdLib.IncludeMacros...),
+			ExcludeMacros: append([]string{}, celCfg.StdLib.ExcludeMacros...),
+		}
+		for _, fn := range celCfg.StdLib.IncludeFunctions {
+			if fn == nil {
+				continue
+			}
+			fs := &FunctionSubset{Name: fn.Name}
+			for _, o := range fn.Overloads {
+				if o != nil {
+					fs.OverloadIDs = append(fs.OverloadIDs, o.ID)
+				}
+			}
+			sub.IncludeFunctions = append(sub.IncludeFunctions, fs)
+		}
+		for _, fn := range celCfg.StdLib.ExcludeFunctions {
+			if fn == nil {
+				continue
+			}
+			fs := &FunctionSubset{Name: fn.Name}
+			for _, o := range fn.Overloads {
+				if o != nil {
+					fs.OverloadIDs = append(fs.OverloadIDs, o.ID)
+				}
+			}
+			sub.ExcludeFunctions = append(sub.ExcludeFunctions, fs)
+		}
+		cfg.StdLib = sub
+	}
+	for _, ext := range celCfg.Extensions {
+		if ext != nil {
+			cfg.Extensions = append(cfg.Extensions, &Extension{Name: ext.Name, Version: ext.Version})
+		}
+	}
+	if celCfg.ContextVariable != nil {
+		cfg.ContextVariable = &ContextVariable{Type: celCfg.ContextVariable.TypeName}
+	}
+	for _, v := range celCfg.Variables {
+		if v != nil {
+			cfg.Variables = append(cfg.Variables, &Variable{
+				Name:        v.Name,
+				Description: v.Description,
+				Type:        formatCELTypeDesc(v.GetType()),
+			})
+		}
+	}
+	for _, fn := range celCfg.Functions {
+		if fn == nil {
+			continue
+		}
+		outFn := &Function{
+			Name:        fn.Name,
+			Description: fn.Description,
+		}
+		for _, o := range fn.Overloads {
+			if o == nil {
+				continue
+			}
+			outOv := &Overload{
+				ID:       o.ID,
+				Examples: append([]string{}, o.Examples...),
+				Target:   formatCELTypeDesc(o.Target),
+				Return:   formatCELTypeDesc(o.Return),
+			}
+			for _, a := range o.Args {
+				outOv.Args = append(outOv.Args, formatCELTypeDesc(a))
+			}
+			outFn.Overloads = append(outFn.Overloads, outOv)
+		}
+		cfg.Functions = append(cfg.Functions, outFn)
+	}
+	for _, val := range celCfg.Validators {
+		if val != nil {
+			cfg.Validators = append(cfg.Validators, &Validator{Name: val.Name, Config: val.Config})
+		}
+	}
+	for _, feat := range celCfg.Features {
+		if feat != nil {
+			cfg.Features = append(cfg.Features, &Feature{Name: feat.Name, Enabled: feat.Enabled})
+		}
+	}
+	for _, lim := range celCfg.Limits {
+		if lim != nil {
+			cfg.Limits = append(cfg.Limits, &Limit{Name: lim.Name, Value: lim.Value})
+		}
+	}
+	return cfg
 }
 
 // EnvFromConfig takes a Config and converts it to a cel-go Env.

@@ -52,10 +52,18 @@ The agent will then follow the updated workflow in your SKILL.md, running
 The skills use the standalone `cel-expr` CLI (`cmd/cel-expr`) to author, compile,
 evaluate, and test CEL expressions:
 
-- `cel-expr env -env <path|json>`: Validates environment configuration and type definitions.
-- `cel-expr prompt -env <path|json> -prompt <requirement>`: Generates authoring prompt.
-- `cel-expr compile -env <path|json> -expr <expr>`: Compiles and type-checks CEL expressions.
-- `cel-expr eval -env <path|json> -expr <expr> -tests <path|json>`: Evaluates expressions against test cases and reports branch/node coverage.
+-   `cel-expr convert-env -env <env.yaml> [-out <env.json>]`: Converts a
+    `cel-go` YAML environment into skills JSON format.
+-   `cel-expr env -env <path|json>`: Validates environment configuration and
+    type definitions.
+-   `cel-expr prompt -env <path|json> -prompt <requirement>`: Generates
+    authoring prompt.
+-   `cel-expr compile [-policy] [-proto_db] -env <path|json> -expr
+    <expr|policy>`: Compiles and type-checks CEL expressions or `.celpolicy`
+    files.
+-   `cel-expr eval [-policy] [-proto_db] -env <path|json> -expr <expr|policy>
+    -tests <path|json>`: Evaluates expressions or `.celpolicy` files against
+    test cases and reports branch/node coverage.
 
 ### Installing `cel-expr`
 
