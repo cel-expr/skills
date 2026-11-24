@@ -29,8 +29,8 @@ alias proto-fds="protoc --include_imports --descriptor_set_out=/dev/stdout"
 3.  **Apply Fix**: Correct the expression, `.celpolicy`, or environment
     configuration based on the error pattern.
 4.  **Verify**: Re-validate using `cel-expr eval` (or `cel-expr compile` when no
-    test bindings are needed; pass `-policy` for `.celpolicy` files or inline
-    YAML policies).
+    test bindings are needed; pass `-format=policy` for `.celpolicy` files or
+    inline YAML policies).
 
 ## Common Compilation Errors
 

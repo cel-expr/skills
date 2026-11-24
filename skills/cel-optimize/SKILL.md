@@ -36,8 +36,8 @@ alias cel-expr="$(go env GOPATH)/bin/cel-expr"
 1.  **Validate Baseline**: Inspect `<env.json>` (variables and enabled
     `extensions`) and compile the original expression or `.celpolicy` with
     `cel-expr compile -env <env.json> -expr "<original_expr>"` (or
-    `cel-expr compile -env <env.json> -policy <policy.celpolicy>`; pass
-    `-proto_db` or `-fds` when protobuf types/enums are used, and if
+    `cel-expr compile -env <env.json> -format=policy -expr <policy.celpolicy>`;
+    pass `-proto_db` or `-fds` when protobuf types/enums are used, and if
     `undeclared reference` occurs on an expression-only protobuf enum/message,
     infer its fully-qualified name from the expression and add it to
     `"protoTypes"` in `<env.json>`—see
@@ -57,8 +57,8 @@ alias cel-expr="$(go env GOPATH)/bin/cel-expr"
         inline `cel.bind`, and preserve first-match ordering across `match:`
         branches when refactoring conditions.
 3.  **Compile Candidate**: Run `cel-expr compile -env <env.json> -expr
-    "<optimized_expr>"` (or `-policy <optimized.celpolicy>`) to verify types and
-    target environment compatibility.
+    "<optimized_expr>"` (or `-format=policy -expr <optimized.celpolicy>`) to
+    verify types and target environment compatibility.
 4.  **Prove Equivalence**: Run `cel-verifier verify-equiv` with `--expr1`,
     `--expr2`, and `--var "<name>:<type>"` for each variable.
 5.  **Resolve Outcomes**:

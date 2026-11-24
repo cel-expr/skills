@@ -56,12 +56,12 @@ evaluate, and test CEL expressions:
     type definitions.
 -   `cel-expr prompt -env <path|json> -prompt <requirement>`: Generates
     authoring prompt.
--   `cel-expr compile [-policy] [-proto_db] -env <path|json> -expr
+-   `cel-expr compile [-format <expr|policy>] [-proto_db] -env <path|json> -expr
     <expr|policy>`: Compiles and type-checks CEL expressions or `.celpolicy`
     files.
--   `cel-expr eval [-policy] [-proto_db] -env <path|json> -expr <expr|policy>
-    -tests <path|json>`: Evaluates expressions or `.celpolicy` files against
-    test cases and reports branch/node coverage.
+-   `cel-expr eval [-format <expr|policy>] [-proto_db] -env <path|json> -expr
+    <expr|policy> -tests <path|json>`: Evaluates expressions or `.celpolicy`
+    files against test cases and reports branch/node coverage.
 
 ### Installing `cel-expr`
 
