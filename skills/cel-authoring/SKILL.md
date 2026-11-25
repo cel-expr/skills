@@ -132,13 +132,13 @@ Report the test results with node and branch coverage percentages.
 
 When authoring or validating multi-rule CEL policies (`.celpolicy` / YAML policy
 documents with `rule.variables` and ordered first-match `rule.match` blocks),
-pass `-policy` to `cel-expr compile` or `cel-expr eval` (or `"policy": true` in
-MCP `cel_compile` / `cel_evaluate`). The expression input may be either a file
-path or inline policy YAML:
+pass `-format=policy` to `cel-expr compile` or `cel-expr eval` (or
+`"policy": true` in MCP `cel_compile` / `cel_evaluate`). The expression input
+may be either a file path or inline policy YAML:
 
 ```bash
-cel-expr compile -env <env.json> -policy <policy.celpolicy>
-cel-expr eval -env <env.json> -policy -tests <tests.json> <policy.celpolicy>
+cel-expr compile -env <env.json> -format=policy -expr <policy.celpolicy>
+cel-expr eval -env <env.json> -format=policy -expr <policy.celpolicy> -tests <tests.json>
 ```
 
 *   `rule.variables` entries are scoped in declaration order and referenced as

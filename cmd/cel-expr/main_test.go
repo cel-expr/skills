@@ -682,8 +682,8 @@ rule:
 	}
 
 	var stdout, stderr bytes.Buffer
-	if err := run([]string{"compile", "-env", envPath, "-proto_db", "-policy", policyPath}, &stdout, &stderr, nil); err != nil {
-		t.Fatalf("run(compile -policy file) failed: %v (stderr: %s)", err, stderr.String())
+	if err := run([]string{"compile", "-env", envPath, "-proto_db", "-format=policy", policyPath}, &stdout, &stderr, nil); err != nil {
+		t.Fatalf("run(compile -format=policy file) failed: %v (stderr: %s)", err, stderr.String())
 	}
 	if !strings.Contains(stderr.String(), `ignoring unsupported policy tag "display_name"`) {
 		t.Errorf("expected display_name warning on stderr, got: %s", stderr.String())
@@ -692,17 +692,44 @@ rule:
 	stdout.Reset()
 	stderr.Reset()
 	testsJSON := `[{"testCase":"admin","bindings":{"role":"admin","code":0},"expected":true},{"testCase":"viewer","bindings":{"role":"viewer","code":2},"expected":false}]`
-	if err := run([]string{"eval", "-env", envPath, "-proto_db", "-policy", "-tests", testsJSON, policyPath}, &stdout, &stderr, nil); err != nil {
-		t.Fatalf("run(eval -policy file) failed: %v (stderr: %s)", err, stderr.String())
+	if err := run([]string{"eval", "-env", envPath, "-proto_db", "-format", "policy", "-tests", testsJSON, policyPath}, &stdout, &stderr, nil); err != nil {
+		t.Fatalf("run(eval -format policy file) failed: %v (stderr: %s)", err, stderr.String())
 	}
 	if !strings.Contains(stdout.String(), `"status": "pass"`) {
-		t.Errorf("expected pass in eval -policy output, got: %s", stdout.String())
+		t.Errorf("expected pass in eval -format=policy output, got: %s", stdout.String())
 	}
 
 	// Inline policy YAML via -expr
 	stdout.Reset()
 	stderr.Reset()
-	if err := run([]string{"eval", "-env", envPath, "-proto_db", "-policy", "-bindings", `{"role":"viewer","code":1}`, "-expected", "true", "-expr", policyYAML}, &stdout, &stderr, nil); err != nil {
-		t.Fatalf("run(eval -policy inline) failed: %v (stderr: %s)", err, stderr.String())
+	if err := run([]string{"eval", "-env", envPath, "-proto_db", "-format=policy", "-bindings", `{"role":"viewer","code":1}`, "-expected", "true", "-expr", policyYAML}, &stdout, &stderr, nil); err != nil {
+		t.Fatalf("run(eval -format=policy inline) failed: %v (stderr: %s)", err, stderr.String())
+	}
+
+	// Policy file path via -expr, with other flags following it
+	stdout.Reset()
+	stderr.Reset()
+	if err := run([]string{"eval", "-env", envPath, "-proto_db", "-format=policy", "-expr", policyPath, "-tests", testsJSON}, &stdout, &stderr, nil); err != nil {
+		t.Fatalf("run(eval -format=policy -expr file) failed: %v (stderr: %s)", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), `"status": "pass"`) {
+		t.Errorf("expected pass in eval -format=policy -expr output, got: %s", stdout.String())
+	}
+
+	// Explicit -format=expr succeeds for standard expressions
+	stdout.Reset()
+	stderr.Reset()
+	if err := run([]string{"compile", "-env", envPath, "-format=expr", "-expr", `role == "admin"`}, &stdout, &stderr, nil); err != nil {
+		t.Fatalf("run(compile -format=expr) failed: %v (stderr: %s)", err, stderr.String())
+	}
+
+	// Invalid -format returns an error
+	for _, cmd := range []string{"compile", "eval"} {
+		stdout.Reset()
+		stderr.Reset()
+		err := run([]string{cmd, "-env", envPath, "-format=yaml", policyPath}, &stdout, &stderr, nil)
+		if err == nil || !strings.Contains(err.Error(), `invalid -format "yaml"`) {
+			t.Errorf("run(%s -format=yaml) error = %v, want invalid -format error", cmd, err)
+		}
 	}
 }

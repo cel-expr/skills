@@ -13,12 +13,12 @@ The standalone `cel-expr` CLI requires no special agent configuration and runs d
     types.
 -   `cel-expr prompt -env <path|json> -prompt <requirement>`: Generates
     authoring prompt.
--   `cel-expr compile [-policy] [-proto_db] -env <path|json> -expr
+-   `cel-expr compile [-format <expr|policy>] [-proto_db] -env <path|json> -expr
     <expr|policy>`: Compiles and type-checks CEL expressions or `.celpolicy`
     files.
--   `cel-expr eval [-policy] [-proto_db] -env <path|json> -expr <expr|policy>
-    -tests <path|json>`: Evaluates expressions or `.celpolicy` files against
-    test cases.
+-   `cel-expr eval [-format <expr|policy>] [-proto_db] -env <path|json> -expr
+    <expr|policy> -tests <path|json>`: Evaluates expressions or `.celpolicy`
+    files against test cases.
 
 In open source, build the CLI with `go build -o cel-expr ./cmd/cel-expr` or install via `go install github.com/cel-expr/skills/cmd/cel-expr@latest` (and `alias cel-expr="$(go env GOPATH)/bin/cel-expr"` if `$(go env GOPATH)/bin` is not on your `PATH`).
 
